@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../index';
-import { signToken } from '../utils/auth';
+import { signToken, authenticate } from '../utils/auth';
 
 const registerSchema = z.object({
     email: z.string().email(),
@@ -66,5 +66,20 @@ export async function authRoutes(server: FastifyInstance) {
 
         const token = signToken({ id: user.id, email: user.email, role: user.role });
         return { token, user: { id: user.id, email: user.email, role: user.role } };
+    });
+    server.get('/auth/me', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = (request as any).user.id;
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                plan: true,
+                trialEndsAt: true
+            }
+        });
+        if (!user) return reply.code(404).send({ error: 'User not found' });
+        return user;
     });
 }

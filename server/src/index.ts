@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import { PrismaClient } from '@prisma/client';
@@ -38,7 +39,7 @@ const buildServer = async () => {
 const start = async () => {
     try {
         const server = await buildServer();
-        const port = parseInt(process.env.PORT || '3000');
+        const port = parseInt(process.env.PORT || '4000');
         await server.listen({ port, host: '0.0.0.0' });
         console.log(`Server listening on port ${port}`);
     } catch (err) {

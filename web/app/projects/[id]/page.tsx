@@ -212,21 +212,21 @@ export default function ProjectDetails() {
                     <ArrowLeft size={20} className="mr-1" /> Back to Dashboard
                 </Link>
 
-                <div className="glass rounded-xl p-6 shadow-xl flex justify-between items-start">
-                    <div>
+                <div className="glass rounded-xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-start gap-4">
+                    <div className="w-full md:w-auto">
                         <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-bold text-white tracking-tight">{project?.name}</h1>
+                            <h1 className="text-3xl font-bold text-white tracking-tight break-all">{project?.name}</h1>
                             {project?.status === 'COMPLETED' && (
-                                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-bold">COMPLETED</span>
+                                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-bold shrink-0">COMPLETED</span>
                             )}
                         </div>
-                        <p className="text-gray-300 mt-1">Client: {project?.clientEmail || 'No client email'}</p>
+                        <p className="text-gray-300 mt-1 break-all">Client: {project?.clientEmail || 'No client email'}</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         {project?.status !== 'COMPLETED' && (
                             <button
                                 onClick={handleCompleteProject}
-                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-emerald-500/20"
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-emerald-500/20"
                             >
                                 <CheckCircle size={18} />
                                 Complete Project
@@ -234,7 +234,7 @@ export default function ProjectDetails() {
                         )}
                         <button
                             onClick={copyClientLink}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 font-medium transition-all active:scale-95"
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 font-medium transition-all active:scale-95"
                         >
                             <LinkIcon size={18} />
                             Portal Link
@@ -244,7 +244,7 @@ export default function ProjectDetails() {
             </div>
 
             {/* Tabs */}
-            <div className="max-w-5xl mx-auto mb-6 flex gap-4 border-b border-white/5">
+            <div className="max-w-5xl mx-auto mb-6 flex gap-4 border-b border-white/5 overflow-x-auto scrollbar-hide">
                 {(['scope', 'deliverables', 'invoices'] as const).map((tab) => (
                     <button
                         key={tab}
@@ -294,11 +294,11 @@ export default function ProjectDetails() {
                         <div className="space-y-4">
                             {project.scopes?.map((scope: Scope) => (
                                 <div key={scope.id} className="glass p-6 rounded-xl border border-white/5 relative">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <span className="bg-white/10 text-white px-2 py-1 rounded text-xs font-bold uppercase border border-white/5">
+                                    <div className="flex flex-col md:flex-row justify-between items-start mb-2 gap-2">
+                                        <span className="bg-white/10 text-white px-2 py-1 rounded text-xs font-bold uppercase border border-white/5 shrink-0">
                                             v{scope.version}
                                         </span>
-                                        <div className="text-right">
+                                        <div className="w-full md:w-auto text-left md:text-right flex flex-row md:flex-col justify-between items-center md:items-end">
                                             <span className="block font-bold text-indigo-300 text-lg">${scope.price}</span>
                                             <span className="text-sm text-gray-400">
                                                 {new Date(scope.createdAt).toLocaleDateString()}
@@ -363,22 +363,22 @@ export default function ProjectDetails() {
                             {project.deliverables?.map((del) => {
                                 const isApproved = del.approvals.some(a => a.action === 'APPROVE');
                                 return (
-                                    <div key={del.id} className="glass p-4 rounded-xl border border-white/5 flex justify-between items-center group hover:bg-white/5 transition-colors">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-semibold text-white">Version {del.version}</span>
+                                    <div key={del.id} className="glass p-4 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center group hover:bg-white/5 transition-colors gap-3">
+                                        <div className="w-full">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                <span className="font-semibold text-white shrink-0">Version {del.version}</span>
                                                 {isApproved ? (
-                                                    <span className="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs font-bold border border-emerald-400/20">APPROVED</span>
+                                                    <span className="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs font-bold border border-emerald-400/20 shrink-0">APPROVED</span>
                                                 ) : (
-                                                    <span className="text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded text-xs font-bold border border-orange-400/20">PENDING APPROVAL</span>
+                                                    <span className="text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded text-xs font-bold border border-orange-400/20 shrink-0">PENDING APPROVAL</span>
                                                 )}
                                             </div>
-                                            <a href={del.fileUrl} target="_blank" className="text-indigo-400 hover:text-indigo-300 underline text-sm block mb-1">
+                                            <a href={del.fileUrl} target="_blank" className="text-indigo-400 hover:text-indigo-300 underline text-sm block mb-1 break-all">
                                                 {del.fileUrl}
                                             </a>
-                                            {del.notes && <p className="text-gray-300 text-sm">{del.notes}</p>}
+                                            {del.notes && <p className="text-gray-300 text-sm break-words">{del.notes}</p>}
                                         </div>
-                                        <div className="text-right text-sm text-gray-400">
+                                        <div className="w-full md:w-auto text-left md:text-right text-sm text-gray-400 shrink-0">
                                             {new Date(del.createdAt).toLocaleDateString()}
                                         </div>
                                     </div>
@@ -400,13 +400,13 @@ export default function ProjectDetails() {
                             </div>
                         ) : (
                             project.invoices?.map((inv) => (
-                                <div key={inv.id} className="glass p-6 rounded-xl border border-white/5 flex justify-between items-center">
+                                <div key={inv.id} className="glass p-6 rounded-xl border border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                     <div>
                                         <h3 className="font-bold text-white tracking-wide">Invoice #{inv.id.slice(0, 8)}</h3>
                                         <p className="text-gray-400 text-sm">Generated on {new Date(inv.createdAt).toLocaleDateString()}</p>
                                     </div>
-                                    <div className="text-right">
-                                        <span className="block text-2xl font-bold text-white mb-1">${inv.amount}</span>
+                                    <div className="w-full sm:w-auto flex flex-row sm:flex-col justify-between items-center sm:items-end gap-2">
+                                        <span className="block text-2xl font-bold text-white mb-0 sm:mb-1">${inv.amount}</span>
                                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${inv.status === 'PAID'
                                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                             : 'bg-amber-500/10 text-amber-500 border-amber-500/20'

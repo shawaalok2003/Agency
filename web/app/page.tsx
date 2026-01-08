@@ -21,7 +21,12 @@ interface Project {
     invoices: Invoice[];
     scopes: Scope[];
 }
-interface User { email: string; }
+interface User {
+    id: string;
+    email: string;
+    plan: 'FREE' | 'PRO';
+    trialEndsAt: string | null;
+}
 
 interface Lead {
     id: string;
@@ -104,10 +109,15 @@ export default function Dashboard() {
                 router.push('/login');
                 return;
             }
+            // Fetch User Profile First
+            const userRes = await api.get('/auth/me');
+            setUser(userRes.data);
+
             await refreshAllData();
-            setUser({ email: 'owner@agency.com' });
         } catch (err) {
             console.error(err);
+            localStorage.removeItem('token');
+            router.push('/login');
         }
     };
 
@@ -244,35 +254,70 @@ export default function Dashboard() {
                     <p className="text-gray-400">Welcome back, here's the pulse of your agency.</p>
                 </div>
                 <button
-                    onClick={() => setModalType('project')}
+                    onClick={() => {
+                        const isTrialActive = user?.trialEndsAt && new Date(user.trialEndsAt) > new Date();
+                        const isPro = user?.plan === 'PRO';
+
+                        if (!isPro && !isTrialActive && projects.length >= 3) {
+                            alert('Free Plan Limit Reached (3 Projects). Please Upgrade.');
+                            return;
+                        }
+                        setModalType('project');
+                    }}
                     className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
                 >
                     <Plus size={20} className="group-hover:rotate-90 transition-transform" /> New Project
                 </button>
             </header>
 
-            {/* Trial Banner */}
-            <div className="bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 rounded-xl p-4 mb-8 flex justify-between items-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full bg-grid-white/5 opacity-20 pointer-events-none"></div>
-                <div className="flex items-center gap-4 z-10">
-                    <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                        <Target size={20} />
+
+            {/* Dynamic Plan Banner */}
+            {user && (() => {
+                const getTrialDaysLeft = () => {
+                    if (!user?.trialEndsAt) return 0;
+                    const end = new Date(user.trialEndsAt);
+                    const now = new Date();
+                    const diff = end.getTime() - now.getTime();
+                    return Math.ceil(diff / (1000 * 3600 * 24));
+                };
+                const isTrialActive = user?.trialEndsAt && new Date(user.trialEndsAt) > new Date();
+                const isPro = user?.plan === 'PRO';
+                const trialDays = getTrialDaysLeft();
+
+                return (
+                    <div className={`bg-gradient-to-r ${isPro || isTrialActive ? 'from-indigo-900/50 to-purple-900/50 border-indigo-500/30' : 'from-gray-800 to-gray-900 border-gray-700'} border rounded-xl p-4 mb-8 flex justify-between items-center relative overflow-hidden`}>
+                        <div className="absolute top-0 left-0 w-full h-full bg-grid-white/5 opacity-20 pointer-events-none"></div>
+                        <div className="flex items-center gap-4 z-10">
+                            <div className={`w-10 h-10 rounded-full ${isPro || isTrialActive ? 'bg-indigo-500/20 text-indigo-400' : 'bg-gray-700 text-gray-400'} flex items-center justify-center`}>
+                                <Target size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-white">
+                                    {isPro ? 'Pro Plan Active' : (isTrialActive ? 'Pro Trial Active' : 'Free Plan')}
+                                </h3>
+                                <p className={`text-sm ${isPro || isTrialActive ? 'text-indigo-200' : 'text-gray-400'}`}>
+                                    {isPro ? 'You have full access.' : (isTrialActive ? `You have unlimited access for ${trialDays} more days.` : 'Upgrade to remove limits.')}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-6 z-10">
+                            <div className="text-right">
+                                <div className="text-sm font-medium text-gray-400">Project Limit</div>
+                                <div className="text-white font-bold">
+                                    {projects.length} / <span className={isPro || isTrialActive ? "text-emerald-400" : "text-amber-400"}>
+                                        {isPro || isTrialActive ? 'Unlimited' : '3'}
+                                    </span>
+                                </div>
+                            </div>
+                            {(!isPro) && (
+                                <button className="bg-white text-indigo-900 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition-colors">
+                                    Upgrade Now
+                                </button>
+                            )}
+                        </div>
                     </div>
-                    <div>
-                        <h3 className="font-bold text-white">Pro Trial Active</h3>
-                        <p className="text-sm text-indigo-200">You have unlimited access for 14 days.</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-6 z-10">
-                    <div className="text-right">
-                        <div className="text-sm font-medium text-gray-400">Project Limit</div>
-                        <div className="text-white font-bold">{projects.length} / <span className="text-emerald-400">Unlimited</span></div>
-                    </div>
-                    <button className="bg-white text-indigo-900 px-4 py-2 rounded-lg font-bold hover:bg-gray-100 transition-colors">
-                        Upgrade Now
-                    </button>
-                </div>
-            </div>
+                );
+            })()}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">

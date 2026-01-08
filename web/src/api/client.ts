@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'; // Configurable for Vercel deployment
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'; // Configurable for Vercel deployment
 
 export const api = axios.create({
     baseURL: API_URL,
