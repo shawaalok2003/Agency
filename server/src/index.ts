@@ -12,8 +12,13 @@ import { leadRoutes } from './routes/leads';
 import { contactRoutes } from './routes/contacts';
 import { teamRoutes } from './routes/team';
 
+let app: FastifyInstance | null = null;
+
 const buildServer = async () => {
-    const server = Fastify({ logger: true });
+    const server = Fastify({
+        logger: process.env.NODE_ENV !== 'production',
+        trustProxy: true
+    });
 
     await server.register(cors, {
         origin: '*',
@@ -47,13 +52,23 @@ const start = async () => {
     }
 };
 
-
-if (require.main === module) {
+// Run locally or in traditional Node environment
+if (process.env.NODE_ENV !== 'production' && require.main === module) {
     start();
 }
 
+// Serverless handler for Vercel
 export default async (req: any, res: any) => {
-    const app = await buildServer();
-    await app.ready();
-    app.server.emit('request', req, res);
+    try {
+        if (!app) {
+            app = await buildServer();
+            await app.ready();
+        }
+        app.server.emit('request', req, res);
+    } catch (error) {
+        console.error('Handler error:', error);
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : String(error) }));
+    }
 };

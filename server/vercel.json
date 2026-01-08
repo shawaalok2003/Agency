@@ -1,21 +1,21 @@
 {
     "version": 2,
-    "buildCommand": "npm install && npx prisma generate && npm run build",
-    "outputDirectory": "dist",
     "builds": [
         {
-            "src": "dist/index.js",
+            "src": "src/index.ts",
             "use": "@vercel/node",
             "config": {
-                "maxLambdaSize": "50mb",
-                "includeFiles": "node_modules/.prisma/client/**"
+                "zeroConfig": true
             }
         }
     ],
     "routes": [
         {
             "src": "/(.*)",
-            "dest": "dist/index.js"
+            "dest": "src/index.ts"
         }
-    ]
+    ],
+    "env": {
+        "DATABASE_URL": "@database_url"
+    }
 }
