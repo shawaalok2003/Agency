@@ -8,6 +8,37 @@ import Link from 'next/link';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Local types for project detail data
+interface Scope {
+    id: string;
+    version: number;
+    price: number;
+    content: string;
+    createdAt: string;
+    isLocked?: boolean;
+}
+
+interface DeliverableApproval {
+    action: 'APPROVE' | 'REJECT' | 'COMMENT';
+    createdAt?: string;
+}
+
+interface Deliverable {
+    id: string;
+    version: number;
+    fileUrl: string;
+    notes?: string;
+    approvals: DeliverableApproval[];
+    createdAt: string;
+}
+
+interface Invoice {
+    id: string;
+    amount: string;
+    status: 'DRAFT' | 'SENT' | 'PAID' | 'PENDING' | 'OVERDUE';
+    createdAt: string;
+}
+
 interface Project {
     id: string;
     name: string;
