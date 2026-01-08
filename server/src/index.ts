@@ -1,4 +1,4 @@
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify, { FastifyInstance, FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import { PrismaClient } from '@prisma/client';
 
@@ -57,18 +57,36 @@ if (process.env.NODE_ENV !== 'production' && require.main === module) {
     start();
 }
 
-// Serverless handler for Vercel - use explicit module.exports
+// Serverless handler for Vercel
 module.exports = async (req: any, res: any) => {
     try {
         if (!app) {
             app = await buildServer();
             await app.ready();
         }
-        app.server.emit('request', req, res);
+        
+        // Use Fastify's inject method for serverless
+        const response = await app.inject({
+            method: req.method,
+            url: req.url,
+            headers: req.headers,
+            payload: req.body,
+            query: req.query
+        });
+
+        // Send response
+        res.statusCode = response.statusCode;
+        Object.keys(response.headers).forEach(key => {
+            res.setHeader(key, response.headers[key]);
+        });
+        res.end(response.payload);
     } catch (error) {
         console.error('Handler error:', error);
         res.statusCode = 500;
         res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ error: 'Internal Server Error', message: error instanceof Error ? error.message : String(error) }));
+        res.end(JSON.stringify({ 
+            error: 'Internal Server Error', 
+            message: error instanceof Error ? error.message : String(error) 
+        }));
     }
 };
