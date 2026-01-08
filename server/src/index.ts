@@ -57,8 +57,8 @@ if (process.env.NODE_ENV !== 'production' && require.main === module) {
     start();
 }
 
-// Serverless handler for Vercel
-export default async (req: any, res: any) => {
+// Serverless handler for Vercel - use explicit module.exports
+module.exports = async (req: any, res: any) => {
     try {
         if (!app) {
             app = await buildServer();
