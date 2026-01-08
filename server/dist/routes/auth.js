@@ -28,15 +28,12 @@ async function authRoutes(server) {
         if (existingUser) {
             return reply.code(400).send({ error: 'User already exists' });
         }
-        const hashedPassword = await bcryptjs_1.default.hash(password, 10);
-        const trialDate = new Date();
-        trialDate.setDate(trialDate.getDate() + 14); // 14 Day Trial
+        const passwordHash = await bcryptjs_1.default.hash(password, 10);
         const user = await index_1.prisma.user.create({
             data: {
                 email,
-                passwordHash: hashedPassword,
+                passwordHash,
                 role: role,
-                trialEndsAt: trialDate,
             },
         });
         const token = (0, auth_1.signToken)({ id: user.id, email: user.email, role: user.role });

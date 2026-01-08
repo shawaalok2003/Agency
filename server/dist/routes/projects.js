@@ -15,22 +15,7 @@ async function projectRoutes(server) {
             return reply.code(400).send({ error: result.error });
         }
         const { name, clientEmail } = result.data;
-        const userId = request.user.id;
-        // Check Limits
-        const user = await index_1.prisma.user.findUnique({ where: { id: userId } });
-        if (!user)
-            return reply.code(401).send({ error: 'User not found' });
-        const isPro = user.plan === 'PRO';
-        const isTrialActive = user.trialEndsAt && new Date(user.trialEndsAt) > new Date();
-        if (!isPro && !isTrialActive) {
-            const count = await index_1.prisma.project.count({ where: { userId } });
-            if (count >= 3) {
-                return reply.code(403).send({
-                    error: 'Free Plan Limit Reached',
-                    message: 'You have reached the limit of 3 projects on the Free Plan. Please upgrade to Pro.'
-                });
-            }
-        }
+        const userId = request.user.id; // Authenticated user
         const project = await index_1.prisma.project.create({
             data: {
                 name,
@@ -46,11 +31,6 @@ async function projectRoutes(server) {
             where: { userId },
             orderBy: { updatedAt: 'desc' },
             include: {
-                invoices: true,
-                scopes: {
-                    orderBy: { version: 'desc' },
-                    take: 1
-                },
                 _count: {
                     select: { deliverables: true, invoices: true },
                 },
@@ -66,7 +46,6 @@ async function projectRoutes(server) {
             include: {
                 scopes: true,
                 deliverables: {
-                    include: { approvals: true },
                     orderBy: { version: 'desc' },
                 },
                 invoices: true,
@@ -75,15 +54,6 @@ async function projectRoutes(server) {
         if (!project) {
             return reply.code(404).send({ error: 'Project not found' });
         }
-        return project;
-    });
-    server.patch('/projects/:id', { preHandler: [auth_1.authenticate] }, async (request, reply) => {
-        const { id } = request.params;
-        const body = request.body;
-        const project = await index_1.prisma.project.update({
-            where: { id },
-            data: { status: body.status }
-        });
         return project;
     });
 }

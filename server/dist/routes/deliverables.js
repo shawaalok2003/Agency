@@ -94,20 +94,17 @@ async function deliverableRoutes(server) {
             }
         });
         // If approved, trigger invoice logic (stub)
-        // If approved, trigger invoice logic
         if (action === 'APPROVE') {
-            // Fetch the active scope amount
-            const latestScope = await index_1.prisma.scope.findFirst({
-                where: { projectId: deliverable.projectId },
-                orderBy: { version: 'desc' }
+            // Stub: Create Invoice
+            /*
+            await prisma.invoice.create({
+              data: {
+                projectId: deliverable.projectId,
+                amount: 1000, // Placeholder or from Scope
+                status: 'DRAFT',
+              }
             });
-            await index_1.prisma.invoice.create({
-                data: {
-                    projectId: deliverable.projectId,
-                    amount: latestScope ? latestScope.price : 0,
-                    status: 'DRAFT',
-                }
-            });
+            */
         }
         return approval;
     });

@@ -8,19 +8,20 @@ import Link from 'next/link';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// Local types for project detail data
+interface ApprovalAuditLog {
+    action: string;
+    comments?: string;
+    performedBy: string;
+    createdAt: string;
+}
+
 interface Scope {
     id: string;
     version: number;
-    price: number;
     content: string;
+    price: string; // Decimal comes as string from JSON often, or number
+    isLocked: boolean;
     createdAt: string;
-    isLocked?: boolean;
-}
-
-interface DeliverableApproval {
-    action: 'APPROVE' | 'REJECT' | 'COMMENT';
-    createdAt?: string;
 }
 
 interface Deliverable {
@@ -28,14 +29,14 @@ interface Deliverable {
     version: number;
     fileUrl: string;
     notes?: string;
-    approvals: DeliverableApproval[];
     createdAt: string;
+    approvals: ApprovalAuditLog[];
 }
 
 interface Invoice {
     id: string;
     amount: string;
-    status: 'DRAFT' | 'SENT' | 'PAID' | 'PENDING' | 'OVERDUE';
+    status: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE';
     createdAt: string;
 }
 
