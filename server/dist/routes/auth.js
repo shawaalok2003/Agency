@@ -28,12 +28,15 @@ async function authRoutes(server) {
         if (existingUser) {
             return reply.code(400).send({ error: 'User already exists' });
         }
-        const passwordHash = await bcryptjs_1.default.hash(password, 10);
+        const hashedPassword = await bcryptjs_1.default.hash(password, 10);
+        const trialDate = new Date();
+        trialDate.setDate(trialDate.getDate() + 14); // 14 Day Trial
         const user = await index_1.prisma.user.create({
             data: {
                 email,
-                passwordHash,
+                passwordHash: hashedPassword,
                 role: role,
+                trialEndsAt: trialDate,
             },
         });
         const token = (0, auth_1.signToken)({ id: user.id, email: user.email, role: user.role });
@@ -55,5 +58,21 @@ async function authRoutes(server) {
         }
         const token = (0, auth_1.signToken)({ id: user.id, email: user.email, role: user.role });
         return { token, user: { id: user.id, email: user.email, role: user.role } };
+    });
+    server.get('/auth/me', { preHandler: [auth_1.authenticate] }, async (request, reply) => {
+        const userId = request.user.id;
+        const user = await index_1.prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                plan: true,
+                trialEndsAt: true
+            }
+        });
+        if (!user)
+            return reply.code(404).send({ error: 'User not found' });
+        return user;
     });
 }

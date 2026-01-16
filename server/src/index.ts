@@ -12,6 +12,7 @@ import { scopeRoutes } from './routes/scopes';
 import { leadRoutes } from './routes/leads';
 import { contactRoutes } from './routes/contacts';
 import { teamRoutes } from './routes/team';
+import { taskRoutes } from './routes/tasks';
 
 const buildServer = async () => {
     const server = Fastify({ logger: true });
@@ -28,6 +29,7 @@ const buildServer = async () => {
     server.register(leadRoutes);
     server.register(contactRoutes);
     server.register(teamRoutes);
+    server.register(taskRoutes);
 
     server.get('/health', async () => {
         return { status: 'ok' };

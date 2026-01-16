@@ -52,6 +52,7 @@ model Project {
   scopes            Scope[]
   deliverables      Deliverable[]
   invoices          Invoice[]
+  tasks             Task[]
   status            ProjectStatus @default(ACTIVE)
 }
 
@@ -162,4 +163,25 @@ model TeamMember {
   projectsCount Int     @default(0)
   rating       Decimal  @default(5.0) @db.Decimal(2, 1)
   createdAt    DateTime @default(now())
+}
+
+model Task {
+  id        String    @id @default(uuid())
+  projectId String
+  project   Project   @relation(fields: [projectId], references: [id])
+  title     String
+  status    String    @default("TODO") // TODO, IN_PROGRESS, DONE
+  assignee  String?
+  dueDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  subtasks  Subtask[]
+}
+
+model Subtask {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  title     String
+  completed Boolean  @default(false)
 }

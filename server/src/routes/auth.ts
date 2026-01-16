@@ -82,4 +82,18 @@ export async function authRoutes(server: FastifyInstance) {
         if (!user) return reply.code(404).send({ error: 'User not found' });
         return user;
     });
+    server.post('/auth/upgrade', { preHandler: [authenticate] }, async (request, reply) => {
+        const userId = (request as any).user.id;
+
+        const user = await prisma.user.update({
+            where: { id: userId },
+            data: {
+                plan: 'PRO',
+                subscriptionStatus: 'ACTIVE',
+                // Remove trial limit logic if needed, or just let PRO override it
+            }
+        });
+
+        return user;
+    });
 }

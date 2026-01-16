@@ -57,6 +57,7 @@ export async function deliverableRoutes(server: FastifyInstance) {
             where: { clientAccessParam: token },
             include: {
                 scopes: true,
+                invoices: true,
                 deliverables: {
                     include: { approvals: true },
                     orderBy: { version: 'desc' }
@@ -122,5 +123,38 @@ export async function deliverableRoutes(server: FastifyInstance) {
         }
 
         return approval;
+    });
+
+    // Client - Pay Invoice (Mock Payment)
+    server.post('/client/invoices/:id/pay', async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const clientToken = request.headers['x-client-token'] as string;
+
+        if (!clientToken) return reply.code(401).send({ error: 'Missing client token' });
+
+        const invoice = await prisma.invoice.findUnique({
+            where: { id },
+            include: { project: true }
+        });
+
+        if (!invoice || invoice.project.clientAccessParam !== clientToken) {
+            return reply.code(403).send({ error: 'Unauthorized' });
+        }
+
+        if (invoice.status === 'PAID') {
+            return invoice;
+        }
+
+        // Simulating Payment Success
+        const updatedInvoice = await prisma.invoice.update({
+            where: { id },
+            data: {
+                status: 'PAID',
+                paidAt: new Date(),
+                // In a real app we'd save Stripe transaction ID here
+            }
+        });
+
+        return updatedInvoice;
     });
 }

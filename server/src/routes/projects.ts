@@ -78,6 +78,9 @@ export async function projectRoutes(server: FastifyInstance) {
                     orderBy: { version: 'desc' },
                 },
                 invoices: true,
+                tasks: {
+                    include: { subtasks: true }
+                }
             },
         });
 
