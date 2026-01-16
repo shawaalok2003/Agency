@@ -71,34 +71,34 @@ export default function LandingPage() {
             <main className="relative pt-48 pb-32 px-4">
                 <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
                     <div className="space-y-8 text-center lg:text-left">
-                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-indigo-400 text-xs font-bold uppercase tracking-widest border border-indigo-500/20">
+                        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-indigo-400 text-xs font-bold uppercase tracking-widest border border-indigo-500/20 animate-fade-in-up">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
                             Redefining Agency Ops
                         </div>
-                        <h1 className="hero-gradient-text text-5xl md:text-7xl font-black leading-[1.05] tracking-tight">
+                        <h1 className="hero-gradient-text text-5xl md:text-7xl font-black leading-[1.05] tracking-tight animate-fade-in-up delay-100">
                             The Operating System for Modern Agencies
                         </h1>
-                        <p className="text-slate-400 text-lg md:text-xl max-w-xl mx-auto lg:mx-0 leading-relaxed">
+                        <p className="text-slate-400 text-lg md:text-xl max-w-xl mx-auto lg:mx-0 leading-relaxed animate-fade-in-up delay-200">
                             Unify your projects, clients, and financials in one ultra-high-performance interface. Built for teams that scale fast.
                         </p>
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-fade-in-up delay-300">
                             <Link href="/login">
-                                <button className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl shadow-indigo-600/30 hover:scale-[1.02] transition-all w-full sm:w-auto">
+                                <button className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-bold rounded-2xl shadow-2xl shadow-indigo-600/30 hover:scale-[1.02] transition-all w-full sm:w-auto animate-pulse-slow">
                                     Start 14-Day Free Trial
                                 </button>
                             </Link>
-                            <button className="px-8 py-4 glass text-white font-bold rounded-2xl hover:bg-white/5 transition-all flex items-center justify-center gap-2 w-full sm:w-auto border border-white/10">
+                            <button className="px-8 py-4 glass text-white font-bold rounded-2xl hover:bg-white/5 transition-all flex items-center justify-center gap-2 w-full sm:w-auto border border-white/10 hover:border-white/20">
                                 Book a Demo
                             </button>
                         </div>
                     </div>
-                    <div className="relative group mt-12 lg:mt-0">
-                        <div className="absolute -inset-4 bg-indigo-500/10 blur-3xl rounded-full"></div>
-                        <div className="tilted-dashboard glass p-2 rounded-[2rem] overflow-hidden border border-white/10">
+                    <div className="relative group mt-12 lg:mt-0 animate-fade-in-up delay-300">
+                        <div className="absolute -inset-4 bg-indigo-500/10 blur-3xl rounded-full animate-pulse-slow"></div>
+                        <div className="tilted-dashboard glass p-2 rounded-[2rem] overflow-hidden border border-white/10 animate-float">
                             <div className="w-full aspect-[4/3] bg-slate-900 rounded-[1.5rem] bg-cover bg-center overflow-hidden relative">
                                 {/* Mockup Content Placeholder or Image */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-                                    <span className="text-slate-600 font-bold">Dashboard Preview</span>
+                                    <img src="/images/image.png" alt="Dashboard Preview" className="w-full h-full object-cover" />
                                 </div>
                             </div>
                         </div>
