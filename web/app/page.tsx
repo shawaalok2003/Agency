@@ -308,7 +308,7 @@ export default function Dashboard() {
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 md:p-10 mb-10 shadow-2xl shadow-indigo-900/20">
                 <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     <div className="max-w-xl">
-                        <h2 className="text-3xl font-bold text-white mb-2">Experience the full power of Agency OS</h2>
+                        <h2 className="text-3xl font-bold text-white mb-2">Experience the full power of ScopeSync</h2>
                         <p className="text-indigo-100 text-lg opacity-90">
                             You have 5 days remaining in your premium trial. Unlock unlimited projects, custom subdomains, and advanced analytics for your whole team.
                         </p>
@@ -429,7 +429,7 @@ export default function Dashboard() {
                             <div className="bg-indigo-600 p-1.5 rounded-lg">
                                 <LayoutGrid size={16} className="text-white" />
                             </div>
-                            <span className="font-bold text-white text-lg tracking-tight">Agency OS</span>
+                            <span className="font-bold text-white text-lg tracking-tight">ScopeSync</span>
                         </div>
 
                         <div className="relative">
@@ -762,7 +762,7 @@ export default function Dashboard() {
                     <div className="bg-indigo-600 p-1.5 rounded-lg">
                         <LayoutGrid size={18} className="text-white" />
                     </div>
-                    <span className="font-bold text-white text-lg tracking-tight">Agency OS</span>
+                    <span className="font-bold text-white text-lg tracking-tight">ScopeSync</span>
                 </div>
                 <div className="flex items-center gap-4">
                     <button className="p-2 bg-[#1f2937] hover:bg-gray-700 text-gray-400 hover:text-white rounded-full transition-colors relative">

@@ -48,7 +48,7 @@ export default function LandingPage() {
                                 <path fillRule="evenodd" d="M9.315 2.894a43.08 43.08 0 0110.873 5.346l.004.002.003.003v.001l.001.001v.001a44.026 44.026 0 01-3.619 11.233.75.75 0 01-.735.485c-.947 0-1.874-.066-2.778-.19l-.353-.049-2.025-4.502.663-3.644-2.766-2.073-1.63 3.398-3.085.343a24.288 24.288 0 01-1.488-8.156.75.75 0 01.62-.843c1.782-.26 3.73-.393 5.776-.393.18 0 .363.001.547.004h.001zM4.25 10.75a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3zM15 16.5a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3z" clipRule="evenodd" />
                             </svg>
                         </div>
-                        <span className="text-white text-xl font-bold tracking-tight">Agency OS</span>
+                        <span className="text-white text-xl font-bold tracking-tight">ScopeSync</span>
                     </div>
                     <div className="hidden md:flex items-center gap-8">
                         <Link href="/workflow" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Workflow</Link>
@@ -73,13 +73,13 @@ export default function LandingPage() {
                     <div className="space-y-8 text-center lg:text-left">
                         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-indigo-400 text-xs font-bold uppercase tracking-widest border border-indigo-500/20 animate-fade-in-up">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                            Redefining Agency Ops
+                            Redefining Client Relationships
                         </div>
                         <h1 className="hero-gradient-text text-5xl md:text-7xl font-black leading-[1.05] tracking-tight animate-fade-in-up delay-100">
-                            The Operating System for Modern Agencies
+                            The CRM for <br />Modern Agencies
                         </h1>
                         <p className="text-slate-400 text-lg md:text-xl max-w-xl mx-auto lg:mx-0 leading-relaxed animate-fade-in-up delay-200">
-                            Unify your projects, clients, and financials in one ultra-high-performance interface. Built for teams that scale fast.
+                            Sync your scope, assets, and payments in one client-facing command center. Built for trust and speed.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start animate-fade-in-up delay-300">
                             <Link href="/login">
@@ -210,7 +210,7 @@ export default function LandingPage() {
                             Start your 14-day free trial.<br />No credit card required.
                         </h2>
                         <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto">
-                            Experience the future of agency management. Join 2,000+ teams who have optimized their operations with Agency OS.
+                            Experience the future of agency management. Join 2,000+ teams who have optimized their operations with ScopeSync.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
                             <Link href="/login">
@@ -245,14 +245,14 @@ export default function LandingPage() {
                                     <path fillRule="evenodd" d="M9.315 2.894a43.08 43.08 0 0110.873 5.346l.004.002.003.003v.001l.001.001v.001a44.026 44.026 0 01-3.619 11.233.75.75 0 01-.735.485c-.947 0-1.874-.066-2.778-.19l-.353-.049-2.025-4.502.663-3.644-2.766-2.073-1.63 3.398-3.085.343a24.288 24.288 0 01-1.488-8.156.75.75 0 01.62-.843c1.782-.26 3.73-.393 5.776-.393.18 0 .363.001.547.004h.001zM4.25 10.75a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3zM15 16.5a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3z" clipRule="evenodd" />
                                 </svg>
                             </div>
-                            <h2 className="text-white text-xl font-bold">Agency OS</h2>
+                            <h2 className="text-white text-xl font-bold">ScopeSync</h2>
                         </div>
                         <p className="text-slate-500 max-w-sm">The world's most advanced agency management platform for teams that demand excellence.</p>
                     </div>
                     {/* Footers links */}
                 </div>
                 <div className="flex flex-col md:flex-row justify-between items-center gap-8 pt-8 border-t border-white/5">
-                    <p className="text-slate-500 text-sm">© 2024 Agency OS. Built for the modern web.</p>
+                    <p className="text-slate-500 text-sm">© 2024 ScopeSync. Built for the modern web.</p>
                 </div>
             </footer>
         </div>

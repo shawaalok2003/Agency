@@ -3,11 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/src/api/client';
-import { ArrowLeft, Plus, Lock, Upload, CheckCircle, Clock, Link as LinkIcon, FileText } from 'lucide-react';
+import { ArrowLeft, Plus, Lock, Upload, CheckCircle, Clock, Link as LinkIcon, FileText, LayoutGrid, Code, ListTodo, Layers, DollarSign, Activity, AlertCircle, Calendar } from 'lucide-react';
 import Sidebar from '@/app/components/Sidebar';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+
+// --- Interfaces ---
 
 interface ApprovalAuditLog {
     action: string;
@@ -20,7 +22,7 @@ interface Scope {
     id: string;
     version: number;
     content: string;
-    price: string; // Decimal comes as string from JSON often, or number
+    price: string;
     isLocked: boolean;
     createdAt: string;
 }
@@ -39,6 +41,33 @@ interface Invoice {
     amount: string;
     status: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE';
     createdAt: string;
+    dueDate?: string; // New
+    items?: { description: string; amount: number }[]; // New
+}
+
+interface Task {
+    id: string;
+    title: string;
+    status: 'TODO' | 'IN_PROGRESS' | 'DONE';
+    assignee?: { name: string; avatar: string };
+    subtasks: { id: string; title: string; completed: boolean }[];
+    dueDate?: string;
+    priority?: 'HIGH' | 'MEDIUM' | 'LOW'; // New field for ClickUp style
+}
+
+interface GitHubData {
+    repo: string;
+    connected: boolean;
+    commits: { message: string; author: string; date: string; hash: string }[];
+    prs: { title: string; status: 'OPEN' | 'MERGED'; author: string }[];
+}
+
+interface ActivityLog {
+    id: string;
+    user: string;
+    action: string;
+    target: string;
+    timestamp: string;
 }
 
 interface Project {
@@ -50,25 +79,10 @@ interface Project {
     deliverables: Deliverable[];
     invoices: Invoice[];
     status: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
-    // New Fields
     tasks: Task[];
     github?: GitHubData;
-}
-
-interface Task {
-    id: string;
-    title: string;
-    status: 'TODO' | 'IN_PROGRESS' | 'DONE';
-    assignee?: { name: string; avatar: string };
-    subtasks: { id: string; title: string; completed: boolean }[];
+    activity: ActivityLog[];
     dueDate?: string;
-}
-
-interface GitHubData {
-    repo: string;
-    connected: boolean;
-    commits: { message: string; author: string; date: string; hash: string }[];
-    prs: { title: string; status: 'OPEN' | 'MERGED'; author: string }[];
 }
 
 export default function ProjectDetails() {
@@ -77,46 +91,115 @@ export default function ProjectDetails() {
     const [project, setProject] = useState<Project | null>(null);
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'overview' | 'scope' | 'deliverables' | 'invoices' | 'tasks' | 'code'>('scope');
+    const [activeTab, setActiveTab] = useState<'overview' | 'scope' | 'deliverables' | 'invoices' | 'tasks' | 'code'>('overview');
 
-    // Forms
+    // Onboarding State
+    const [showTour, setShowTour] = useState(false);
+    const [tourStep, setTourStep] = useState(0);
+
+    // Tour Steps Configuration
+    const tourSteps = [
+        {
+            target: 'overview',
+            title: 'Project Command Center',
+            content: 'This is your dashboard. Check project health, budget status, and recent activity at a glance.'
+        },
+        {
+            target: 'scope',
+            title: 'The Statement of Work',
+            content: 'Define exactly what is being built here. Approved items become your "Promise" to the client.'
+        },
+        {
+            target: 'tasks',
+            title: 'Task Management',
+            content: 'Track progress with our new Board view. Assign tasks, set priorities, and upload proofs when done.'
+        }
+    ];
+
+    // UI State for Detailed Views
+    const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+
+    // Forms State
     const [newScopeContent, setNewScopeContent] = useState('');
     const [newScopePrice, setNewScopePrice] = useState('');
     const [newDeliverableUrl, setNewDeliverableUrl] = useState('');
     const [newDeliverableNotes, setNewDeliverableNotes] = useState('');
 
+    // Sidebar Items Configuration
+    const sidebarItems = [
+        { id: 'overview', label: 'Overview', icon: LayoutGrid },
+        { id: 'scope', label: 'Scope', icon: FileText },
+        { id: 'deliverables', label: 'Deliverables', icon: Layers },
+        { id: 'tasks', label: 'Tasks', icon: ListTodo },
+        { id: 'invoices', label: 'Invoices', icon: DollarSign },
+        { id: 'code', label: 'Code', icon: Code },
+    ];
+
     useEffect(() => {
         fetchProject();
+        // Check for first-time visitor (mock)
+        const hasSeenTour = localStorage.getItem('agency_tour_completed');
+        if (!hasSeenTour) {
+            setTimeout(() => setShowTour(true), 1000); // Small delay for dramatic effect
+        }
     }, [params.id]);
+
+    const handleTourNext = () => {
+        if (tourStep < tourSteps.length - 1) {
+            const nextStep = tourStep + 1;
+            setTourStep(nextStep);
+            setActiveTab(tourSteps[nextStep].target as any); // Auto-navigate tabs
+        } else {
+            setShowTour(false);
+            localStorage.setItem('agency_tour_completed', 'true');
+        }
+    };
 
     const fetchProject = async () => {
         try {
             const { data } = await api.get(`/projects/${params.id}`);
 
-            // Map backend task data to frontend interface
+            // Map backend task data
             const mappedTasks = data.tasks?.map((t: any) => ({
                 ...t,
                 assignee: t.assignee ? { name: t.assignee, avatar: t.assignee[0].toUpperCase() } : undefined,
-                subtasks: t.subtasks || []
+                subtasks: t.subtasks || [],
+                priority: t.priority || ['HIGH', 'MEDIUM', 'LOW'][Math.floor(Math.random() * 3)] // Mock priority if missing
             })) || [];
 
-            // Mock GitHub Data (Still mocked as backend integration for GitHub is separate)
+            // Mock GitHub Data
             const mockGithub: GitHubData = {
                 repo: 'agency-os/client-portal',
                 connected: false,
                 commits: [
                     { message: 'feat: add task management', author: 'Alice', date: '2h ago', hash: 'a1b2c3d' },
                     { message: 'fix: login button alignment', author: 'Bob', date: '5h ago', hash: 'e5f6g7h' },
-                    { message: 'docs: update readme', author: 'Charlie', date: '1d ago', hash: 'i8j9k0l' }
                 ],
-                prs: [
-                    { title: 'Feature/Tasks', status: 'OPEN', author: 'Alice' },
-                    { title: 'Hotfix/Auth', status: 'MERGED', author: 'Bob' }
-                ]
+                prs: [{ title: 'Feature/Tasks', status: 'OPEN', author: 'Alice' }]
             };
 
-            setProject({ ...data, tasks: mappedTasks, github: mockGithub });
-            // Fetch User for Sidebar
+            // Mock Activity Data (Overview)
+            const mockActivity: ActivityLog[] = [
+                { id: '1', user: 'System', action: 'generated', target: 'Invoice #1023', timestamp: '2 hours ago' },
+                { id: '2', user: 'Client', action: 'approved', target: 'Scope v1.2', timestamp: 'Yesterday' },
+                { id: '3', user: 'Bob', action: 'uploaded', target: 'Wireframes.pdf', timestamp: '2 days ago' },
+            ];
+
+            // Mock Invoices (Expanded)
+            const mockInvoices: Invoice[] = data.invoices?.length ? data.invoices : [
+                { id: 'INV-2024-001', amount: '5000', status: 'PAID', createdAt: new Date(Date.now() - 840000000).toISOString(), items: [{ description: 'Initial Deposit', amount: 5000 }] },
+                { id: 'INV-2024-002', amount: '7500', status: 'SENT', createdAt: new Date().toISOString(), items: [{ description: 'Milestone 1: Design', amount: 7500 }] }
+            ];
+
+            setProject({
+                ...data,
+                tasks: mappedTasks,
+                github: mockGithub,
+                activity: mockActivity,
+                invoices: mockInvoices,
+                dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString()
+            });
+
             api.get('/auth/me').then(res => setUser(res.data)).catch(() => { });
         } catch (error) {
             console.error('Failed to fetch project', error);
@@ -125,72 +208,43 @@ export default function ProjectDetails() {
         }
     };
 
+    // --- Handlers (Restored) ---
+
     const handleAddTask = async (status: 'TODO' | 'IN_PROGRESS' | 'DONE' = 'TODO') => {
         if (!project) return;
         const title = prompt('Task Title:');
         if (!title) return;
         const assignee = prompt('Assignee Name (optional):');
-
         try {
-            await api.post('/tasks', {
-                projectId: project.id,
-                title,
-                status,
-                assignee
-            });
+            await api.post('/tasks', { projectId: project.id, title, status, assignee });
             fetchProject();
-        } catch (err: any) {
-            console.error(err);
-            alert(`Failed to create task: ${err.response?.data?.error || err.message}`);
-        }
+        } catch (err: any) { alert(err.message); }
     };
 
     const handleAddSubtask = async (taskId: string) => {
         const title = prompt('Subtask Title:');
         if (!title) return;
-
         try {
             await api.post(`/tasks/${taskId}/subtasks`, { title });
             fetchProject();
-        } catch (err: any) {
-            console.error(err);
-            alert(`Failed to add subtask: ${err.response?.data?.error || err.message}`);
-        }
+        } catch (err: any) { alert(err.message); }
     };
 
     const handleToggleSubtask = async (subtask: { id: string; completed: boolean; title: string }) => {
         try {
-            await api.patch(`/tasks/subtasks/${subtask.id}`, {
-                completed: !subtask.completed,
-                title: subtask.title
-            });
+            await api.patch(`/tasks/subtasks/${subtask.id}`, { completed: !subtask.completed, title: subtask.title });
             fetchProject();
-        } catch (err: any) {
-            console.error(err);
-            alert(`Failed to update subtask: ${err.response?.data?.error || err.message}`);
-        }
-    };
-
-    const handleUpdateTaskStatus = async (taskId: string, newStatus: 'TODO' | 'IN_PROGRESS' | 'DONE') => {
-        // In a real DnD impl, this would be updated. For now we can expose a way to move them if needed, 
-        // or just assume the UI will eventually have DnD. 
-        // Current UI doesn't have drag/drop yet, but we will add buttons or similar.
+        } catch (err: any) { alert(err.message); }
     };
 
     const handleAddScope = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!project) return;
         try {
-            await api.post(`/projects/${project.id}/scopes`, {
-                content: newScopeContent,
-                price: parseFloat(newScopePrice) || 0
-            });
-            setNewScopeContent('');
-            setNewScopePrice('');
+            await api.post(`/projects/${project.id}/scopes`, { content: newScopeContent, price: parseFloat(newScopePrice) || 0 });
+            setNewScopeContent(''); setNewScopePrice('');
             fetchProject();
-        } catch (err) {
-            alert('Failed to add scope');
-        }
+        } catch (err) { alert('Failed to add scope'); }
     };
 
     const handleLockScope = async (scopeId: string) => {
@@ -198,33 +252,18 @@ export default function ProjectDetails() {
         try {
             await api.patch(`/projects/${project.id}/scopes/${scopeId}/lock`);
             fetchProject();
-        } catch (err) {
-            alert('Failed to lock scope');
-        }
+        } catch (err) { alert('Failed to lock scope'); }
     };
 
     const handleUploadDeliverable = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!project) return;
-
-        if (!newDeliverableUrl.startsWith('http')) {
-            alert('Please enter a valid URL (starting with http:// or https://)');
-            return;
-        }
-
+        if (!newDeliverableUrl.startsWith('http')) { alert('Please enter a valid URL'); return; }
         try {
-            await api.post('/deliverables', {
-                projectId: project.id,
-                fileUrl: newDeliverableUrl,
-                notes: newDeliverableNotes
-            });
-            setNewDeliverableUrl('');
-            setNewDeliverableNotes('');
+            await api.post('/deliverables', { projectId: project.id, fileUrl: newDeliverableUrl, notes: newDeliverableNotes });
+            setNewDeliverableUrl(''); setNewDeliverableNotes('');
             fetchProject();
-        } catch (err: any) {
-            console.error(err);
-            alert(`Failed to upload deliverable: ${err.response?.data?.error || err.message}`);
-        }
+        } catch (err: any) { alert(err.message); }
     };
 
     const copyClientLink = () => {
@@ -236,149 +275,184 @@ export default function ProjectDetails() {
 
     const handleCompleteProject = async () => {
         if (!project) return;
-        if (!confirm('Are you sure you want to complete this project? This will generate a closure report.')) return;
-
+        if (!confirm('Are you sure?')) return;
         try {
-            // 1. Update Status
             await api.patch(`/projects/${project.id}`, { status: 'COMPLETED' });
-
-            // 2. Generate PDF Report
-            const doc = new jsPDF();
-
-            // Header
-            doc.setFontSize(22);
-            doc.text('Project Closure Report', 14, 20);
-
-            doc.setFontSize(12);
-            doc.setTextColor(100);
-            doc.text(`Project: ${project.name}`, 14, 30);
-            doc.text(`Client: ${project.clientEmail || 'N/A'}`, 14, 37);
-            doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 44);
-
-            // Financial Summary
-            const totalValue = project.invoices.reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-            const paidValue = project.invoices.filter(i => i.status === 'PAID').reduce((sum, inv) => sum + parseFloat(inv.amount), 0);
-
-            doc.setDrawColor(200);
-            doc.line(14, 50, 196, 50);
-
-            doc.setFontSize(14);
-            doc.setTextColor(0);
-            doc.text('Financial Summary', 14, 60);
-
-            doc.setFontSize(10);
-            doc.text(`Total Invoiced: $${totalValue.toLocaleString()}`, 14, 68);
-            doc.text(`Total Paid: $${paidValue.toLocaleString()}`, 14, 74);
-            doc.text(`Balance Due: $${(totalValue - paidValue).toLocaleString()}`, 14, 80);
-
-            // Invoices Table
-            doc.setFontSize(14);
-            doc.text('Invoices', 14, 95);
-
-            const tableData = project.invoices.map(inv => [
-                inv.id.slice(0, 8),
-                new Date(inv.createdAt).toLocaleDateString(),
-                inv.status,
-                `$${inv.amount}`
-            ]);
-
-            autoTable(doc, {
-                startY: 100,
-                head: [['Invoice ID', 'Date', 'Status', 'Amount']],
-                body: tableData,
-                theme: 'striped',
-                headStyles: { fillColor: [79, 70, 229] }
-            });
-
-            // Save
-            doc.save(`Closure_Report_${project.name.replace(/\s+/g, '_')}.pdf`);
-
-            // Refresh
             fetchProject();
-            alert('Project completed and report downloaded!');
-
-        } catch (err) {
-            console.error(err);
-            alert('Failed to complete project');
-        }
+        } catch (err) { alert('Failed'); }
     };
 
-    // ... (rest of code)
 
-    // ... (rest of code)
+    // --- Render Functions (Dashboard) ---
+
     if (loading) return <div className="p-8 text-gray-300">Loading...</div>;
     if (!project) return <div className="p-8 text-gray-300">Project not found</div>;
 
+    const totalBudget = project.scopes.reduce((sum, s) => sum + parseFloat(s.price), 0);
+    const invoicedAmount = project.invoices.reduce((sum, i) => sum + parseFloat(i.amount), 0);
+    const paidAmount = project.invoices.filter(i => i.status === 'PAID').reduce((sum, i) => sum + parseFloat(i.amount), 0);
+    const completedTasks = project.tasks.filter(t => t.status === 'DONE').length;
+    const progress = project.tasks.length ? Math.round((completedTasks / project.tasks.length) * 100) : 0;
+
     return (
         <div className="min-h-screen flex text-gray-100 font-sans">
-            <Sidebar user={user} />
+            <Sidebar
+                user={user}
+                customNavItems={sidebarItems}
+                activeItemId={activeTab}
+                onViewChange={(id) => {
+                    setActiveTab(id as any);
+                    setSelectedInvoiceId(null); // Reset detail view
+                }}
+            />
             <div className="flex-1 p-8 overflow-y-auto">
                 {/* Header */}
-                <div className="max-w-5xl mx-auto mb-8">
-                    <Link href="/" className="inline-flex items-center text-gray-300 hover:text-white mb-4 transition-colors">
-                        <ArrowLeft size={20} className="mr-1" /> Back to Dashboard
-                    </Link>
-
-                    <div className="glass rounded-xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-start gap-4">
-                        <div className="w-full md:w-auto">
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-3xl font-bold text-white tracking-tight break-all">{project?.name}</h1>
-                                {project?.status === 'COMPLETED' && (
-                                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full text-xs font-bold shrink-0">COMPLETED</span>
-                                )}
-                            </div>
-                            <p className="text-gray-300 mt-1 break-all">Client: {project?.clientEmail || 'No client email'}</p>
+                <div className="max-w-6xl mx-auto mb-8">
+                    <div className="glass rounded-xl p-6 shadow-xl flex justify-between items-center mb-6">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white tracking-tight">{project.name}</h1>
+                            <p className="text-gray-400">Client: {project.clientEmail}</p>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                            {project?.status !== 'COMPLETED' && (
-                                <button
-                                    onClick={handleCompleteProject}
-                                    className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-emerald-500/20"
-                                >
-                                    <CheckCircle size={18} />
-                                    Complete Project
-                                </button>
-                            )}
+                        <div className="flex gap-2">
                             <button
                                 onClick={copyClientLink}
-                                className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 font-medium transition-all active:scale-95"
+                                className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 font-medium transition-all"
                             >
-                                <LinkIcon size={18} />
-                                Portal Link
+                                <LinkIcon size={18} /> Portal Link
                             </button>
                         </div>
                     </div>
-                </div>
 
-                {/* Tabs */}
-                {/* Tabs */}
-                <div className="max-w-5xl mx-auto mb-6 border-b border-white/5 overflow-x-auto scrollbar-hide">
-                    <nav className="-mb-px flex space-x-8">
-                        {['overview', 'scope', 'deliverables', 'tasks', 'invoices', 'code'].map((tab) => (
-                            <button
-                                key={tab}
-                                onClick={() => setActiveTab(tab as any)}
-                                className={`
-                                    whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm capitalize
-                                    ${activeTab === tab
-                                        ? 'border-indigo-500 text-indigo-400'
-                                        : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'}
-                                `}
-                            >
-                                {tab}
-                            </button>
-                        ))}
-                    </nav>
-                </div>
+                    {/* OVERVIEW DASHBOARD */}
+                    {activeTab === 'overview' && (
+                        <div className="space-y-6">
+                            {/* Metrics Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="glass p-5 rounded-xl border border-white/5">
+                                    <h3 className="text-gray-400 text-xs uppercase font-semibold mb-2">Project Health</h3>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                            <Activity size={20} />
+                                        </div>
+                                        <div>
+                                            <span className="text-2xl font-bold text-white">{progress}%</span>
+                                            <p className="text-xs text-gray-500 flex items-center gap-1">
+                                                {completedTasks} / {project.tasks.length} Tasks
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="w-full bg-white/5 h-1.5 mt-4 rounded-full overflow-hidden">
+                                        <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                                    </div>
+                                </div>
 
-                <div className="mt-8">
-                    {/* ... Existing Tabs ... */}
+                                <div className="glass p-5 rounded-xl border border-white/5">
+                                    <h3 className="text-gray-400 text-xs uppercase font-semibold mb-2">Budget Utilized</h3>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                            <DollarSign size={20} />
+                                        </div>
+                                        <div>
+                                            <span className="text-2xl font-bold text-white">${invoicedAmount.toLocaleString()}</span>
+                                            <p className="text-xs text-gray-500">of ${totalBudget.toLocaleString()} Scope</p>
+                                        </div>
+                                    </div>
+                                    {/* Mini Budget Bar */}
+                                    <div className="flex h-1.5 mt-4 rounded-full overflow-hidden bg-white/5">
+                                        <div className="bg-indigo-500 h-full" style={{ width: `${(invoicedAmount / (totalBudget || 1)) * 100}%` }}></div>
+                                    </div>
+                                </div>
+
+                                <div className="glass p-5 rounded-xl border border-white/5">
+                                    <h3 className="text-gray-400 text-xs uppercase font-semibold mb-2">Outstanding</h3>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400">
+                                            <AlertCircle size={20} />
+                                        </div>
+                                        <div>
+                                            <span className="text-2xl font-bold text-white">${(invoicedAmount - paidAmount).toLocaleString()}</span>
+                                            <p className="text-xs text-gray-500">Unpaid Invoices</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="glass p-5 rounded-xl border border-white/5">
+                                    <h3 className="text-gray-400 text-xs uppercase font-semibold mb-2">Deadline</h3>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                            <Calendar size={20} />
+                                        </div>
+                                        <div>
+                                            <span className="text-xl font-bold text-white">{new Date(project.dueDate || '').toLocaleDateString()}</span>
+                                            <p className="text-xs text-gray-500">Target Completion</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                {/* Recent Activity */}
+                                <div className="lg:col-span-2 glass p-6 rounded-2xl border border-white/5">
+                                    <h3 className="text-white font-semibold mb-4">Recent Activity</h3>
+                                    <div className="space-y-4">
+                                        {project.activity.map((log) => (
+                                            <div key={log.id} className="flex gap-4 items-start group">
+                                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-gray-400 border border-white/10 group-hover:border-indigo-500/50 group-hover:text-indigo-400 transition-colors">
+                                                    {log.user[0]}
+                                                </div>
+                                                <div className="flex-1 pt-1">
+                                                    <p className="text-sm text-gray-200">
+                                                        <span className="font-semibold text-white">{log.user}</span> {log.action} <span className="text-indigo-300">{log.target}</span>
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-1">{log.timestamp}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {project.activity.length === 0 && <p className="text-gray-500 text-sm">No activity recorded.</p>}
+                                    </div>
+                                </div>
+
+                                {/* Pending Actions / Quick Links */}
+                                <div className="glass p-6 rounded-2xl border border-white/5">
+                                    <h3 className="text-white font-semibold mb-4">Quick Actions</h3>
+                                    <div className="space-y-3">
+                                        <button onClick={() => setActiveTab('scope')} className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex justify-between items-center group">
+                                            <span className="text-sm text-gray-300 group-hover:text-white">Add Scope Item</span>
+                                            <Plus size={16} className="text-gray-500 group-hover:text-white" />
+                                        </button>
+                                        <button onClick={() => setActiveTab('tasks')} className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex justify-between items-center group">
+                                            <span className="text-sm text-gray-300 group-hover:text-white">Create Task</span>
+                                            <ListTodo size={16} className="text-gray-500 group-hover:text-white" />
+                                        </button>
+                                        <button onClick={() => handleCompleteProject()} className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex justify-between items-center group">
+                                            <span className="text-sm text-gray-300 group-hover:text-white">Generate Report</span>
+                                            <FileText size={16} className="text-gray-500 group-hover:text-white" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* SCOPE TAB */}
                     {activeTab === 'scope' && (
                         <div className="space-y-6">
-                            {/* ... Scope Content (Existing) ... */}
+                            <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-xl">
+                                <h3 className="text-indigo-400 font-semibold flex items-center gap-2 mb-1">
+                                    <FileText size={18} /> Statement of Work (SOW)
+                                </h3>
+                                <p className="text-sm text-gray-300">
+                                    Define the specific items, features, or services included in this project.
+                                    Locking an item signals a signed agreement. This is your "Promise".
+                                </p>
+                            </div>
                             {project.scopes?.length === 0 && (
                                 <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/5 border-dashed">
-                                    <p className="text-gray-400">No scope defined yet.</p>
+                                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <FileText className="text-gray-500" size={32} />
+                                    </div>
+                                    <h4 className="text-white font-medium mb-1">No Scope Defined</h4>
+                                    <p className="text-sm text-gray-400 max-w-sm mx-auto">Start by adding line items that you agree to deliver.</p>
                                 </div>
                             )}
                             {project.scopes?.map((scope) => (
@@ -390,110 +464,68 @@ export default function ProjectDetails() {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             {scope.isLocked ? (
-                                                <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20 flex items-center gap-1">
-                                                    <Lock size={12} /> Approved
-                                                </span>
+                                                <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20 flex items-center gap-1"><Lock size={12} /> Approved</span>
                                             ) : (
-                                                <button onClick={() => handleLockScope(scope.id)} className="text-xs text-indigo-400 hover:text-indigo-300">
-                                                    Mark as Approved
-                                                </button>
+                                                <button onClick={() => handleLockScope(scope.id)} className="text-xs text-indigo-400 hover:text-indigo-300">Mark as Approved</button>
                                             )}
                                             <span className="text-xl font-bold text-white">${parseFloat(scope.price).toLocaleString()}</span>
                                         </div>
                                     </div>
-                                    <div className="prose prose-invert max-w-none text-gray-300">
-                                        <p>{scope.content}</p>
-                                    </div>
+                                    <div className="prose prose-invert max-w-none text-gray-300"><p>{scope.content}</p></div>
                                 </div>
                             ))}
-
-                            {/* Add Scope Form */}
                             <form onSubmit={handleAddScope} className="glass p-6 rounded-2xl border border-white/5">
-                                <h3 className="text-lg font-semibold text-white mb-4">Add Scope / Quote</h3>
+                                <h3 className="text-lg font-semibold text-white mb-4">Add Line Item to SOW</h3>
                                 <div className="space-y-4">
-                                    <textarea
-                                        placeholder="Scope details..."
-                                        value={newScopeContent}
-                                        onChange={(e) => setNewScopeContent(e.target.value)}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500 min-h-[100px]"
-                                    />
+                                    <textarea placeholder="Describe the deliverable..." value={newScopeContent} onChange={(e) => setNewScopeContent(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500 min-h-[100px]" />
                                     <div className="flex gap-4">
-                                        <input
-                                            type="number"
-                                            placeholder="Price"
-                                            value={newScopePrice}
-                                            onChange={(e) => setNewScopePrice(e.target.value)}
-                                            className="bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500"
-                                        />
-                                        <button type="submit" className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors">
-                                            Add Scope
-                                        </button>
+                                        <input type="number" placeholder="Price" value={newScopePrice} onChange={(e) => setNewScopePrice(e.target.value)} className="bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500" />
+                                        <button type="submit" className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors">Add to Scope</button>
                                     </div>
                                 </div>
                             </form>
                         </div>
                     )}
 
+                    {/* DELIVERABLES TAB */}
                     {activeTab === 'deliverables' && (
                         <div className="space-y-6">
-                            {/* Upload Deliverable Form */}
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
+                                <h3 className="text-emerald-400 font-semibold flex items-center gap-2 mb-1">
+                                    <Layers size={18} /> Project Assets & Deliverables
+                                </h3>
+                                <p className="text-sm text-gray-300">
+                                    Upload finished work for client review. Once approved, these items are considered complete.
+                                    This is your "Proof" of work.
+                                </p>
+                            </div>
                             <form onSubmit={handleUploadDeliverable} className="glass p-6 rounded-2xl border border-white/5">
-                                <h3 className="text-lg font-semibold text-white mb-4">Upload New Deliverable</h3>
+                                <h3 className="text-lg font-semibold text-white mb-4">Submit Asset for Review</h3>
                                 <div className="space-y-4">
-                                    <input
-                                        type="text"
-                                        placeholder="File URL (e.g., Google Drive link)"
-                                        value={newDeliverableUrl}
-                                        onChange={(e) => setNewDeliverableUrl(e.target.value)}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500"
-                                    />
-                                    <textarea
-                                        placeholder="Notes (optional)"
-                                        value={newDeliverableNotes}
-                                        onChange={(e) => setNewDeliverableNotes(e.target.value)}
-                                        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500 min-h-[80px]"
-                                    />
-                                    <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium shadow-lg shadow-indigo-500/20 text-sm">
-                                        Upload
-                                    </button>
+                                    <input type="text" placeholder="File URL..." value={newDeliverableUrl} onChange={(e) => setNewDeliverableUrl(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500" />
+                                    <textarea placeholder="Notes..." value={newDeliverableNotes} onChange={(e) => setNewDeliverableNotes(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500 min-h-[80px]" />
+                                    <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium">Submit for Approval</button>
                                 </div>
                             </form>
-
                             <div className="space-y-4">
                                 {project.deliverables?.map((del) => {
                                     const isApproved = del.approvals.some(a => a.action === 'APPROVE');
                                     const isRequested = del.approvals.some(a => a.action === 'REQUEST_CHANGES');
                                     return (
-                                        <div key={del.id} className="glass p-4 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center group hover:bg-white/5 transition-colors gap-3">
+                                        <div key={del.id} className="glass p-4 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                                             <div className="w-full">
                                                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                    <span className="font-semibold text-white shrink-0">Version {del.version}</span>
-                                                    {isApproved ? (
-                                                        <span className="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs font-bold border border-emerald-400/20 shrink-0">APPROVED</span>
-                                                    ) : isRequested ? (
-                                                        <span className="text-red-400 bg-red-400/10 px-2 py-0.5 rounded text-xs font-bold border border-red-400/20 shrink-0">CHANGES REQUESTED</span>
-                                                    ) : (
-                                                        <span className="text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded text-xs font-bold border border-orange-400/20 shrink-0">PENDING APPROVAL</span>
-                                                    )}
+                                                    <span className="font-semibold text-white">Version {del.version}</span>
+                                                    {isApproved ? <span className="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs">APPROVED</span> : isRequested ? <span className="text-red-400 bg-red-400/10 px-2 py-0.5 rounded text-xs">CHANGES REQUESTED</span> : <span className="text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded text-xs">PENDING APPROVAL</span>}
                                                 </div>
-                                                <a href={del.fileUrl} target="_blank" className="text-indigo-400 hover:text-indigo-300 underline text-sm block mb-1 break-all">
-                                                    {del.fileUrl}
-                                                </a>
-                                                {del.notes && <p className="text-gray-300 text-sm break-words">{del.notes}</p>}
-                                                {isRequested && (
-                                                    <div className="mt-3 bg-red-500/10 border border-red-500/20 p-3 rounded-lg">
-                                                        <p className="text-xs font-bold text-red-400 mb-1">CLIENT FEEDBACK:</p>
-                                                        <p className="text-sm text-gray-200">"{del.approvals.find(a => a.action === 'REQUEST_CHANGES')?.comments}"</p>
-                                                    </div>
-                                                )}
+                                                <a href={del.fileUrl} target="_blank" className="text-indigo-400 hover:text-indigo-300 underline text-sm">{del.fileUrl}</a>
+                                                {del.notes && <p className="text-gray-300 text-sm mt-1">{del.notes}</p>}
                                             </div>
-                                            <div className="w-full md:w-auto text-left md:text-right text-sm text-gray-400 shrink-0">
-                                                {new Date(del.createdAt).toLocaleDateString()}
-                                            </div>
+                                            <div className="text-right text-sm text-gray-400">{new Date(del.createdAt).toLocaleDateString()}</div>
                                         </div>
                                     );
                                 })}
-                                {project.deliverables?.length === 0 && <p className="text-gray-400 text-center py-8">No deliverables yet.</p>}
+                                {project.deliverables?.length === 0 && <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/5 border-dashed"><h4 className="text-white font-medium">No Deliverables Yet</h4><p className="text-sm text-gray-400">When you finish a task, upload it here.</p></div>}
                             </div>
                         </div>
                     )}
@@ -503,177 +535,154 @@ export default function ProjectDetails() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 overflow-x-auto pb-4">
                             {['TODO', 'IN_PROGRESS', 'DONE'].map(status => (
                                 <div key={status} className="glass p-4 rounded-xl border border-white/5 h-fit min-h-[200px]">
-                                    <h3 className="text-sm font-medium text-gray-400 mb-4 px-2 flex justify-between items-center">
-                                        {status.replace('_', ' ')}
-                                        <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-gray-300">
-                                            {project.tasks.filter(t => t.status === status).length}
-                                        </span>
-                                    </h3>
+                                    <h3 className="text-sm font-medium text-gray-400 mb-4 px-2 flex justify-between items-center">{status.replace('_', ' ')} <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-gray-300">{project.tasks.filter(t => t.status === status).length}</span></h3>
                                     <div className="space-y-3">
                                         {project.tasks.filter(t => t.status === status).map(task => (
-                                            <div key={task.id} className="bg-white/5 p-3 rounded-lg border border-white/10 hover:border-white/20 transition-all group">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <span className="text-sm font-medium text-white">{task.title}</span>
-                                                    {task.assignee && (
-                                                        <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] text-white font-bold" title={task.assignee.name}>
-                                                            {task.assignee.avatar}
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Subtasks */}
-                                                {task.subtasks.length > 0 && (
-                                                    <div className="space-y-1 mb-2">
-                                                        {task.subtasks.map(sub => (
-                                                            <div
-                                                                key={sub.id}
-                                                                className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer hover:text-white"
-                                                                onClick={() => handleToggleSubtask(sub)}
-                                                            >
-                                                                <div className={`w-3 h-3 rounded-full border border-gray-600 flex items-center justify-center ${sub.completed ? 'bg-emerald-500/20 border-emerald-500/50' : ''}`}>
-                                                                    {sub.completed && <CheckCircle size={8} className="text-emerald-400" />}
-                                                                </div>
-                                                                <span className={sub.completed ? 'line-through opacity-50' : ''}>{sub.title}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button
-                                                        onClick={() => handleAddSubtask(task.id)}
-                                                        className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
-                                                    >
-                                                        <Plus size={10} /> Subtask
-                                                    </button>
-                                                    <div className="text-[10px] text-gray-500">
-                                                        {task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}
-                                                    </div>
-                                                </div>
+                                            <div key={task.id} className="bg-white/5 p-3 rounded-lg border border-white/10 hover:border-white/20 transition-all">
+                                                <div className="flex justify-between items-start mb-2"><span className="text-sm font-medium text-white">{task.title}</span>{task.assignee && <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] text-white font-bold">{task.assignee.avatar}</div>}</div>
+                                                {task.subtasks.length > 0 && <div className="space-y-1 mb-2">{task.subtasks.map(sub => (<div key={sub.id} className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer" onClick={() => handleToggleSubtask(sub)}><div className={`w-3 h-3 rounded-full border border-gray-600 ${sub.completed ? 'bg-emerald-500/20' : ''}`} />{sub.title}</div>))}</div>}
+                                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5"><button onClick={() => handleAddSubtask(task.id)} className="text-[10px] text-gray-400 flex items-center gap-1"><Plus size={10} /> Subtask</button></div>
                                             </div>
                                         ))}
-                                        <button
-                                            onClick={() => handleAddTask(status as any)}
-                                            className="w-full py-2 text-xs text-gray-400 hover:text-white border border-dashed border-white/10 rounded-lg hover:bg-white/5 transition-colors"
-                                        >
-                                            + Add Task
-                                        </button>
+                                        <button onClick={() => handleAddTask(status as any)} className="w-full py-2 text-xs text-gray-400 border border-dashed border-white/10 rounded-lg">+ Add Task</button>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     )}
 
-                    {/* CODE TAB */}
-                    {activeTab === 'code' && project.github && (
+                    {/* INVOICES TAB (ENHANCED) */}
+                    {activeTab === 'invoices' && (
                         <div className="space-y-6">
-                            <div className="glass p-6 rounded-2xl border border-white/5 flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white">
-                                        <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white mb-1">{project.github.repo}</h3>
-                                        <p className="text-sm text-gray-400 flex items-center gap-2">
-                                            <span className={`w-2 h-2 rounded-full ${project.github.connected ? 'bg-emerald-500' : 'bg-orange-500'}`}></span>
-                                            {project.github.connected ? 'Connected' : 'Not Connected'}
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => {
-                                        if (project.github) {
-                                            setProject({ ...project, github: { ...project.github, connected: !project.github.connected } });
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
-                                >
-                                    {project.github.connected ? 'Disconnect' : 'Connect Repo'}
-                                </button>
-                            </div>
+                            {selectedInvoiceId ? (
+                                // DETAILED INVOICE VIEW
+                                <div className="glass p-8 rounded-2xl border border-white/5">
+                                    <button onClick={() => setSelectedInvoiceId(null)} className="flex items-center text-sm text-gray-400 hover:text-white mb-6"><ArrowLeft size={16} className="mr-1" /> Back to List</button>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Commits */}
-                                <div className="glass p-6 rounded-2xl border border-white/5">
-                                    <h3 className="text-sm font-semibold text-white mb-4 uppercase tracking-wider">Recent Commits</h3>
-                                    <div className="space-y-4">
-                                        {project.github.commits.map((commit, i) => (
-                                            <div key={i} className="flex gap-3">
-                                                <div className="mt-1 flex flex-col items-center">
-                                                    <div className="w-2 h-2 rounded-full bg-gray-600"></div>
-                                                    {i !== project.github!.commits.length - 1 && <div className="w-0.5 h-full bg-gray-800 my-1"></div>}
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-200 font-mono">{commit.message}</p>
-                                                    <div className="flex gap-2 text-xs text-gray-500 mt-1">
-                                                        <span>{commit.author}</span>
-                                                        <span>•</span>
-                                                        <span>{commit.date}</span>
-                                                        <span>•</span>
-                                                        <span className="font-mono text-indigo-400">{commit.hash}</span>
+                                    {/* Payment Flow Stepper */}
+                                    <div className="mb-8">
+                                        <div className="flex justify-between items-center relative z-10">
+                                            {['Generated', 'Sent', 'Viewed', 'Paid', 'Deposited'].map((step, i) => {
+                                                const currentStatus = project.invoices.find(i => i.id === selectedInvoiceId)?.status;
+                                                const statusMap = { 'DRAFT': 0, 'SENT': 1, 'PAID': 3, 'OVERDUE': 1 };
+                                                const currentStepIndex = statusMap[currentStatus || 'DRAFT'] ?? 0;
+                                                const active = i <= currentStepIndex;
+                                                return (
+                                                    <div key={step} className="flex flex-col items-center gap-2">
+                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-transparent border-gray-700 text-gray-500'}`}>
+                                                            {i + 1}
+                                                        </div>
+                                                        <span className={`text-xs ${active ? 'text-white font-medium' : 'text-gray-600'}`}>{step}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-800 -z-0 hidden md:block" style={{ top: '240px' }}></div>
+                                        {/* CSS Hack for stepper line, would normally use relative positioning better */}
+                                    </div>
+
+                                    {/* Invoice Content */}
+                                    {(() => {
+                                        const invoice = project.invoices.find(inv => inv.id === selectedInvoiceId);
+                                        if (!invoice) return null;
+                                        return (
+                                            <div className="bg-white/5 rounded-xl p-8 border border-white/5">
+                                                <div className="flex justify-between items-start mb-8">
+                                                    <div>
+                                                        <h2 className="text-2xl font-bold text-white mb-1">Invoice</h2>
+                                                        <p className="text-gray-400">#{invoice.id}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-sm text-gray-400">Amount Due</p>
+                                                        <p className="text-3xl font-bold text-white">${invoice.amount}</p>
+                                                        <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold border ${invoice.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{invoice.status}</span>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
 
-                                {/* PRs */}
-                                <div className="glass p-6 rounded-2xl border border-white/5">
-                                    <h3 className="text-sm font-semibold text-white mb-4 uppercase tracking-wider">Pull Requests</h3>
-                                    <div className="space-y-3">
-                                        {project.github.prs.map((pr, i) => (
-                                            <div key={i} className="bg-white/5 p-4 rounded-xl border border-white/5 flex justify-between items-center">
-                                                <div>
-                                                    <h4 className="text-sm font-medium text-white mb-1">{pr.title}</h4>
-                                                    <p className="text-xs text-gray-500">Opened by {pr.author}</p>
+                                                <div className="space-y-4 mb-8">
+                                                    <div className="flex justify-between text-sm text-gray-400 border-b border-gray-700 pb-2">
+                                                        <span>Description</span>
+                                                        <span>Amount</span>
+                                                    </div>
+                                                    {invoice.items?.map((item, idx) => (
+                                                        <div key={idx} className="flex justify-between text-white">
+                                                            <span>{item.description}</span>
+                                                            <span>${item.amount.toLocaleString()}</span>
+                                                        </div>
+                                                    ))}
+                                                    {!invoice.items && <p className="text-gray-500 italic">No line items details.</p>}
                                                 </div>
-                                                <span className={`px-2 py-1 rounded text-xs font-medium border ${pr.status === 'MERGED'
-                                                    ? 'text-purple-400 bg-purple-500/10 border-purple-500/20'
-                                                    : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                                                    }`}>
-                                                    {pr.status}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
-                    {/* INVOICES TAB */}
-                    {activeTab === 'invoices' && (
-                        <div className="space-y-4">
-                            {project.invoices?.length === 0 ? (
-                                <div className="text-center py-12 glass rounded-xl border border-dashed border-white/10">
-                                    <FileText size={48} className="mx-auto text-gray-500 mb-4" />
-                                    <p className="text-gray-300">No invoices yet.</p>
-                                    <p className="text-sm text-gray-400 mt-2">Invoices are generated automatically when a client approves a deliverable.</p>
+                                                <div className="flex justify-between pt-4 border-t border-gray-700">
+                                                    <span className="text-white font-bold">Total</span>
+                                                    <span className="text-white font-bold">${invoice.amount}</span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             ) : (
-                                project.invoices?.map((inv) => (
-                                    <div key={inv.id} className="glass p-6 rounded-xl border border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                        <div>
-                                            <h3 className="font-bold text-white tracking-wide">Invoice #{inv.id.slice(0, 8)}</h3>
-                                            <p className="text-gray-400 text-sm">Generated on {new Date(inv.createdAt).toLocaleDateString()}</p>
-                                        </div>
-                                        <div className="w-full sm:w-auto flex flex-row sm:flex-col justify-between items-center sm:items-end gap-2">
-                                            <span className="block text-2xl font-bold text-white mb-0 sm:mb-1">${inv.amount}</span>
-                                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${inv.status === 'PAID'
-                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                                                }`}>
-                                                {inv.status}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))
+                                // LIST VIEW
+                                <div className="space-y-4">
+                                    {project.invoices?.length === 0 ? (
+                                        <div className="text-center py-12 glass rounded-xl border border-dashed border-white/10"><FileText size={48} className="mx-auto text-gray-500 mb-4" /><p className="text-gray-300">No invoices yet.</p></div>
+                                    ) : (
+                                        project.invoices?.map((inv) => (
+                                            <div key={inv.id} onClick={() => setSelectedInvoiceId(inv.id)} className="cursor-pointer glass p-6 rounded-xl border border-white/5 flex justify-between items-center hover:bg-white/5 transition-colors group">
+                                                <div>
+                                                    <h3 className="font-bold text-white tracking-wide group-hover:text-indigo-400 transition-colors">Invoice #{inv.id.slice(0, 8)}</h3>
+                                                    <p className="text-gray-400 text-sm">Generated on {new Date(inv.createdAt).toLocaleDateString()}</p>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-right">
+                                                        <span className="block text-xl font-bold text-white mb-1">${inv.amount}</span>
+                                                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${inv.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{inv.status}</span>
+                                                    </div>
+                                                    <ArrowLeft size={16} className="rotate-180 text-gray-600 group-hover:text-indigo-400" />
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             )}
                         </div>
                     )}
+                    {/* CODE TAB */}
+                    {activeTab === 'code' && project.github && (
+                        <div className="glass p-6 rounded-2xl border border-white/5"><div className="flex items-center gap-4 mb-6"><div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white"><Code size={24} /></div><div><h3 className="text-lg font-bold text-white">{project.github.repo}</h3><p className={`text-sm ${project.github.connected ? 'text-emerald-400' : 'text-orange-400'}`}>{project.github.connected ? 'Connected' : 'Not Connected'}</p></div></div><h3 className="text-sm font-semibold uppercase text-gray-500 mb-4">Recent Commits</h3><div className="space-y-4">{project.github.commits.map((c, i) => (<div key={i} className="flex gap-3"><div className="mt-1 w-2 h-2 rounded-full bg-gray-600" /><div><p className="text-sm text-gray-200 font-mono">{c.message}</p><p className="text-xs text-gray-500">{c.author} • {c.date}</p></div></div>))}</div></div>
+                    )}
                 </div>
             </div>
+
+            {/* TOUR OVERLAY */}
+            {showTour && (
+                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-[#0f1115] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
+                        {/* Decorative Gradient */}
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
+                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
+
+                        <div className="mb-6">
+                            <h2 className="text-2xl font-bold text-white mb-2">{tourSteps[tourStep].title}</h2>
+                            <p className="text-gray-400 leading-relaxed">{tourSteps[tourStep].content}</p>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-8">
+                            <div className="flex gap-2">
+                                {tourSteps.map((_, i) => (
+                                    <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === tourStep ? 'w-8 bg-indigo-500' : 'w-2 bg-gray-700'}`}></div>
+                                ))}
+                            </div>
+                            <button
+                                onClick={handleTourNext}
+                                className="px-6 py-2 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                            >
+                                {tourStep === tourSteps.length - 1 ? 'Get Started' : 'Next'} <ArrowLeft size={16} className="rotate-180" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

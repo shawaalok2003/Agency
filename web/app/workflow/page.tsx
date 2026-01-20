@@ -51,7 +51,7 @@ export default function WorkflowPage() {
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
                             <Layers size={20} className="text-white" />
                         </div>
-                        <Link href="/" className="text-white text-xl font-bold tracking-tight">Agency OS</Link>
+                        <Link href="/" className="text-white text-xl font-bold tracking-tight">ScopeSync</Link>
                     </div>
                     <div className="hidden md:flex items-center gap-8">
                         <Link href="/workflow" className="text-white text-sm font-medium transition-colors">Workflow</Link>
@@ -79,7 +79,7 @@ export default function WorkflowPage() {
                         One System to Rule Your <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#5048e5] to-indigo-400">Whole Agency</span>
                     </h1>
                     <p className="text-lg text-slate-500 dark:text-slate-400 max-w-2xl mx-auto">
-                        Stop juggling tools. From the first handshake to the final invoice, Agency OS orchestrates your entire operation in a single unified workspace.
+                        Stop juggling tools. From the first handshake to the final invoice, ScopeSync orchestrates your entire operation in a single unified workspace.
                     </p>
                 </div>
 
@@ -144,7 +144,7 @@ export default function WorkflowPage() {
                                 </div>
                                 <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">Unrivaled Deliverables</h2>
                                 <p className="text-slate-400 text-lg leading-relaxed">
-                                    Stop manual task creation. When a contract is signed, Agency OS automatically builds the project structure, assigns leads, and sets deadlines.
+                                    Stop manual task creation. When a contract is signed, ScopeSync automatically builds the project structure, assigns leads, and sets deadlines.
                                 </p>
                                 <ul className="space-y-4 pt-4">
                                     {[
@@ -258,14 +258,14 @@ export default function WorkflowPage() {
                         <div className="flex flex-col sm:flex-row gap-4 justify-center relative z-10">
                             <Link href="/login">
                                 <button className="bg-white text-[#5048e5] px-10 py-4 rounded-xl font-extrabold text-lg shadow-xl hover:scale-105 transition-transform w-full sm:w-auto">
-                                    Get Agency OS Now
+                                    Get ScopeSync Now
                                 </button>
                             </Link>
                             <button className="bg-[#5048e5]/50 backdrop-blur-sm border border-white/20 text-white px-10 py-4 rounded-xl font-bold text-lg hover:bg-white/10 transition-colors">
                                 Book a Demo
                             </button>
                         </div>
-                        <p className="mt-8 text-white/70 text-sm font-medium relative z-10">Join 1,200+ top-tier agencies already scaling on Agency OS.</p>
+                        <p className="mt-8 text-white/70 text-sm font-medium relative z-10">Join 1,200+ top-tier agencies already scaling on ScopeSync.</p>
                     </div>
                 </div>
             </main>
@@ -276,7 +276,7 @@ export default function WorkflowPage() {
                         <div className="w-8 h-8 bg-[#5048e5]/20 rounded-lg flex items-center justify-center text-[#5048e5]">
                             <Layers size={18} />
                         </div>
-                        <span className="font-bold text-slate-800 dark:text-white">Agency OS</span>
+                        <span className="font-bold text-slate-800 dark:text-white">ScopeSync</span>
                     </div>
                     <div className="flex gap-8 text-sm text-slate-500">
                         <a className="hover:text-[#5048e5] transition-colors" href="#">Twitter</a>
@@ -284,7 +284,7 @@ export default function WorkflowPage() {
                         <a className="hover:text-[#5048e5] transition-colors" href="#">Terms</a>
                         <a className="hover:text-[#5048e5] transition-colors" href="#">Privacy</a>
                     </div>
-                    <p className="text-sm text-slate-500">© 2024 Agency OS Inc. All rights reserved.</p>
+                    <p className="text-sm text-slate-500">© 2024 ScopeSync Inc. All rights reserved.</p>
                 </div>
             </footer>
         </div>

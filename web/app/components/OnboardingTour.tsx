@@ -11,7 +11,7 @@ interface Step {
 
 const steps: Step[] = [
     {
-        title: "Welcome to Agency OS",
+        title: "Welcome to ScopeSync",
         description: "The complete operating system for your creative business. This quick tour will show you how to manage your entire agency lifecycle from lead to payment.",
         icon: <Rocket size={48} className="text-indigo-400" />
     },
@@ -47,7 +47,7 @@ const steps: Step[] = [
     },
     {
         title: "7. Automated Invoicing",
-        description: "Turn your approved Scope into a professional Invoice with one click. Agency OS handles the math. Track status from 'Draft' to 'Sent' to 'Paid'.",
+        description: "Turn your approved Scope into a professional Invoice with one click. ScopeSync handles the math. Track status from 'Draft' to 'Sent' to 'Paid'.",
         icon: <DollarSign size={48} className="text-green-400" />
     },
     {

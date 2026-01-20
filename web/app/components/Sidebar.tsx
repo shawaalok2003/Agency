@@ -11,20 +11,24 @@ interface SidebarProps {
     onSignOut?: () => void;
     currentView?: string;
     onViewChange?: (view: string) => void;
+    customNavItems?: { id: string; label: string; icon: any }[];
+    activeItemId?: string;
 }
 
-export default function Sidebar({ user, onSignOut, currentView, onViewChange }: SidebarProps) {
+export default function Sidebar({ user, onSignOut, currentView, onViewChange, customNavItems, activeItemId }: SidebarProps) {
     const [isOpen, setIsOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
 
     useEffect(() => {
         setIsOpen(false);
-    }, [pathname, currentView]);
+    }, [pathname, currentView, activeItemId]);
 
     const NavItem = ({ id, icon: Icon, label }: any) => {
         // active state logic
-        const isActive = currentView === id || (id === 'dashboard' && !currentView && pathname === '/');
+        const isActive = customNavItems
+            ? activeItemId === id
+            : currentView === id || (id === 'dashboard' && !currentView && pathname === '/');
 
         const handleClick = () => {
             if (onViewChange) {
@@ -84,7 +88,7 @@ export default function Sidebar({ user, onSignOut, currentView, onViewChange }: 
                             <Zap fill="currentColor" size={20} />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold tracking-tight text-white leading-none">Agency OS</h1>
+                            <h1 className="text-xl font-bold tracking-tight text-white leading-none">ScopeSync</h1>
                             <span className="text-[10px] text-gray-500 font-medium tracking-wider uppercase">Management Suite</span>
                         </div>
                     </div>
@@ -95,33 +99,43 @@ export default function Sidebar({ user, onSignOut, currentView, onViewChange }: 
 
                 {/* Nav Links */}
                 <div className="flex-1 overflow-y-auto space-y-1">
-                    <NavItem id="dashboard" icon={LayoutGrid} label="Dashboard" />
-                    <NavItem id="projects" icon={Briefcase} label="Projects" />
-                    <NavItem id="leads" icon={Target} label="Leads" />
-                    <NavItem id="contacts" icon={Users} label="Clients" />
-                    <NavItem id="finance" icon={FileText} label="Invoices" />
-                    <NavItem id="team" icon={Users} label="Team" />
-                    <NavItem id="settings" icon={Settings} label="Settings" />
+                    {customNavItems ? (
+                        customNavItems.map((item) => (
+                            <NavItem key={item.id} id={item.id} icon={item.icon} label={item.label} />
+                        ))
+                    ) : (
+                        <>
+                            <NavItem id="dashboard" icon={LayoutGrid} label="Dashboard" />
+                            <NavItem id="projects" icon={Briefcase} label="Projects" />
+                            <NavItem id="leads" icon={Target} label="Leads" />
+                            <NavItem id="contacts" icon={Users} label="Clients" />
+                            <NavItem id="finance" icon={FileText} label="Invoices" />
+                            <NavItem id="team" icon={Users} label="Team" />
+                            <NavItem id="settings" icon={Settings} label="Settings" />
+                        </>
+                    )}
                 </div>
 
                 {/* Bottom Actions */}
                 <div className="mt-auto pt-6">
-                    <button
-                        onClick={async () => {
-                            if (confirm("Confirm upgrade to PRO plan? This will unlock unlimited projects.")) {
-                                try {
-                                    await api.post('/auth/upgrade');
-                                    alert("Successfully upgraded to PRO!");
-                                    window.location.reload();
-                                } catch (e) {
-                                    alert("Upgrade failed. Please try again.");
+                    {!customNavItems && (
+                        <button
+                            onClick={async () => {
+                                if (confirm("Confirm upgrade to PRO plan? This will unlock unlimited projects.")) {
+                                    try {
+                                        await api.post('/auth/upgrade');
+                                        alert("Successfully upgraded to PRO!");
+                                        window.location.reload();
+                                    } catch (e) {
+                                        alert("Upgrade failed. Please try again.");
+                                    }
                                 }
-                            }
-                        }}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/25 transition-all active:scale-95 mb-4"
-                    >
-                        Upgrade Plan
-                    </button>
+                            }}
+                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-indigo-500/25 transition-all active:scale-95 mb-4"
+                        >
+                            Upgrade Plan
+                        </button>
+                    )}
 
                     {user && (
                         <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group">
