@@ -88,7 +88,7 @@ export default function Sidebar({ user, onSignOut, currentView, onViewChange, cu
                             <Zap fill="currentColor" size={20} />
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold tracking-tight text-white leading-none">ScopeSync</h1>
+                            <h1 className="text-xl font-bold tracking-tight text-white leading-none">AgencyOS</h1>
                             <span className="text-[10px] text-gray-500 font-medium tracking-wider uppercase">Management Suite</span>
                         </div>
                     </div>

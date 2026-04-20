@@ -54,7 +54,7 @@ export default function PricingPage() {
                                 <path fillRule="evenodd" d="M9.315 2.894a43.08 43.08 0 0110.873 5.346l.004.002.003.003v.001l.001.001v.001a44.026 44.026 0 01-3.619 11.233.75.75 0 01-.735.485c-.947 0-1.874-.066-2.778-.19l-.353-.049-2.025-4.502.663-3.644-2.766-2.073-1.63 3.398-3.085.343a24.288 24.288 0 01-1.488-8.156.75.75 0 01.62-.843c1.782-.26 3.73-.393 5.776-.393.18 0 .363.001.547.004h.001zM4.25 10.75a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3zM15 16.5a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3z" clipRule="evenodd" />
                             </svg>
                         </div>
-                        <Link href="/" className="text-white text-xl font-bold tracking-tight">ScopeSync</Link>
+                        <Link href="/" className="text-white text-xl font-bold tracking-tight">AgencyOS</Link>
                     </div>
                     <div className="hidden md:flex items-center gap-8">
                         <Link href="/workflow" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Workflow</Link>
@@ -275,7 +275,7 @@ export default function PricingPage() {
                                     <span className="material-symbols-outlined text-slate-500 group-hover:text-indigo-500 transition-colors group-open:rotate-180">expand_more</span>
                                 </summary>
                                 <div className="mt-4 text-sm text-slate-400 leading-relaxed">
-                                    Absolutely. We offer a 14-day free trial on the Pro plan so you can experience the full power of ScopeSync before committing.
+                                    Absolutely. We offer a 14-day free trial on the Pro plan so you can experience the full power of AgencyOS before committing.
                                 </div>
                             </details>
                         </div>
@@ -315,7 +315,7 @@ export default function PricingPage() {
                                     <path fillRule="evenodd" d="M9.315 2.894a43.08 43.08 0 0110.873 5.346l.004.002.003.003v.001l.001.001v.001a44.026 44.026 0 01-3.619 11.233.75.75 0 01-.735.485c-.947 0-1.874-.066-2.778-.19l-.353-.049-2.025-4.502.663-3.644-2.766-2.073-1.63 3.398-3.085.343a24.288 24.288 0 01-1.488-8.156.75.75 0 01.62-.843c1.782-.26 3.73-.393 5.776-.393.18 0 .363.001.547.004h.001zM4.25 10.75a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3zM15 16.5a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3z" clipRule="evenodd" />
                                 </svg>
                             </div>
-                            <h2 className="text-white text-xl font-bold">ScopeSync</h2>
+                            <h2 className="text-white text-xl font-bold">AgencyOS</h2>
                         </div>
                         <p className="text-slate-500 max-w-sm">The world's most advanced agency management platform for teams that demand excellence.</p>
                     </div>
@@ -325,7 +325,7 @@ export default function PricingPage() {
                     </div>
                 </div>
                 <div className="flex flex-col md:flex-row justify-between items-center gap-8 pt-8 border-t border-white/5">
-                    <p className="text-slate-500 text-sm">© 2024 ScopeSync. Built for the modern web.</p>
+                    <p className="text-slate-500 text-sm">© 2024 AgencyOS. Built for the modern web.</p>
                 </div>
             </footer>
         </div>

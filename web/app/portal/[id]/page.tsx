@@ -19,7 +19,7 @@ export default function ClientPortalPage({ params }: { params: { id: string } })
                             <div className="bg-indigo-600 p-1.5 rounded-lg">
                                 <div className="w-4 h-4 rounded-sm bg-white/20" />
                             </div>
-                            <span className="font-bold text-lg tracking-tight">ScopeSync</span>
+                            <span className="font-bold text-lg tracking-tight">AgencyOS</span>
                         </div>
                         <div className="h-4 w-px bg-white/10" />
                         <div className="flex items-center gap-2 text-sm text-gray-400">

@@ -24,10 +24,10 @@ export const authenticate = async (request: FastifyRequest, reply: FastifyReply)
         const token = authHeader.split(' ')[1];
         const decoded = verifyToken(token);
         if (!decoded) {
-            return reply.code(401).send({ error: 'Invalid token' });
+            return reply.code(401).send({ error: 'Session expired or invalid token. Please log in again.' });
         }
         (request as any).user = decoded as any;
     } catch (err) {
-        reply.code(401).send({ error: 'Authentication failed' });
+        reply.code(401).send({ error: 'Authentication failed. Please sign in.' });
     }
 };

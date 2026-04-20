@@ -12,12 +12,12 @@ try {
 
 # Start Server
 Write-Host "Starting Server..."
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd server; if (!(Test-Path node_modules)) { npm install }; npm run dev"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "npm run dev -w server"
 
 
 # Start Web (Next.js)
 Write-Host "Starting Web App..."
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd web; if (!(Test-Path node_modules)) { npm install }; npm run dev"
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "npm run dev -w web"
 
 Write-Host "All services launched in separate windows."
 Read-Host -Prompt "Press Enter to exit this launcher..."

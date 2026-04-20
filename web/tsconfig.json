@@ -18,6 +18,9 @@
         "name": "next"
       }
     ],
+    "types": [
+      "styled-jsx"
+    ],
     "paths": {
       "@/*": ["./*"]
     }

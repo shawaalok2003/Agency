@@ -59,7 +59,7 @@ export default function FeaturesPage() {
                                     <path d="M4 4H17.3334V17.3334H30.6666V30.6666H44V44H4V4Z" fill="currentColor"></path>
                                 </svg>
                             </div>
-                            <Link href="/" className="text-white text-xl font-bold tracking-tight">ScopeSync</Link>
+                            <Link href="/" className="text-white text-xl font-bold tracking-tight">AgencyOS</Link>
                         </div>
                         <div className="hidden md:flex items-center gap-8">
                             <Link href="/workflow" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Workflow</Link>
@@ -85,7 +85,7 @@ export default function FeaturesPage() {
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
                         <div className="max-w-2xl">
                             <h1 className="text-4xl md:text-6xl font-black tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-b from-white to-gray-400">
-                                ScopeSync Bento Features
+                                AgencyOS Bento Features
                             </h1>
                             <p className="text-gray-400 text-lg leading-relaxed">
                                 A high-performance operating system designed for modern creative agencies. Scale your operations with modular, data-driven intelligence.
@@ -246,7 +246,7 @@ export default function FeaturesPage() {
                         <div className="relative z-10">
                             <h2 className="text-3xl md:text-4xl font-black mb-6">Ready to optimize your agency?</h2>
                             <p className="text-gray-400 text-lg mb-10 max-w-xl mx-auto">
-                                Join 500+ top-tier agencies already using ScopeSync to drive their growth and manage their creative talent.
+                                Join 500+ top-tier agencies already using AgencyOS to drive their growth and manage their creative talent.
                             </p>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                                 <Link href="/login">
@@ -271,8 +271,8 @@ export default function FeaturesPage() {
                                     <path d="M4 4H17.3334V17.3334H30.6666V30.6666H44V44H4V4Z" fill="currentColor"></path>
                                 </svg>
                             </div>
-                            <p className="text-sm font-bold">ScopeSync</p>
-                            <p className="text-gray-500 text-sm ml-4 border-l border-[rgba(255,255,255,0.05)] pl-4">© 2024 ScopeSync Inc.</p>
+                            <p className="text-sm font-bold">AgencyOS</p>
+                            <p className="text-gray-500 text-sm ml-4 border-l border-[rgba(255,255,255,0.05)] pl-4">© 2024 AgencyOS Inc.</p>
                         </div>
                         <div className="flex gap-8 text-sm text-gray-500">
                             <a className="hover:text-white transition-colors" href="#">Privacy</a>
