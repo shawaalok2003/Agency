@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "AgencyOS",
+  title: "agnecyos",
   description: "The operating system for your agency.",
 };
 

@@ -1,4 +1,4 @@
-Write-Host "Starting Agency Auto Project..."
+Write-Host "Starting agnecyos..."
 Write-Host "--------------------------------"
 
 # Start Docker

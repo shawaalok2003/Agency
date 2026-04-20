@@ -1,4 +1,4 @@
-# AgencyOS
+# agnecyos
 
 A specialized Internal OS for freelancers and small agencies to manage deliverables, approvals, and invoices.
 
