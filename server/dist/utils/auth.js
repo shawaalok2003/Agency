@@ -28,12 +28,12 @@ const authenticate = async (request, reply) => {
         const token = authHeader.split(' ')[1];
         const decoded = (0, exports.verifyToken)(token);
         if (!decoded) {
-            return reply.code(401).send({ error: 'Invalid token' });
+            return reply.code(401).send({ error: 'Session expired or invalid token. Please log in again.' });
         }
         request.user = decoded;
     }
     catch (err) {
-        reply.code(401).send({ error: 'Authentication failed' });
+        reply.code(401).send({ error: 'Authentication failed. Please sign in.' });
     }
 };
 exports.authenticate = authenticate;

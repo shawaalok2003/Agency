@@ -4,6 +4,7 @@ exports.deliverableRoutes = deliverableRoutes;
 const zod_1 = require("zod");
 const index_1 = require("../index");
 const auth_1 = require("../utils/auth");
+const emailService_1 = require("../services/emailService");
 const createDeliverableSchema = zod_1.z.object({
     projectId: zod_1.z.string().uuid(),
     fileUrl: zod_1.z.string().url(), // S3 URL
@@ -51,6 +52,7 @@ async function deliverableRoutes(server) {
             where: { clientAccessParam: token },
             include: {
                 scopes: true,
+                invoices: true,
                 deliverables: {
                     include: { approvals: true },
                     orderBy: { version: 'desc' }
@@ -73,7 +75,7 @@ async function deliverableRoutes(server) {
             return reply.code(401).send({ error: 'Missing client token' });
         const deliverable = await index_1.prisma.deliverable.findUnique({
             where: { id },
-            include: { project: true }
+            include: { project: { include: { user: true } } }
         });
         if (!deliverable || deliverable.project.clientAccessParam !== clientToken) {
             return reply.code(403).send({ error: 'Unauthorized' });
@@ -93,7 +95,6 @@ async function deliverableRoutes(server) {
                 userAgent: request.headers['user-agent'] || 'Unknown'
             }
         });
-        // If approved, trigger invoice logic (stub)
         // If approved, trigger invoice logic
         if (action === 'APPROVE') {
             // Fetch the active scope amount
@@ -109,6 +110,55 @@ async function deliverableRoutes(server) {
                 }
             });
         }
+        // Notify agency owner of client's approval or revision request
+        if (deliverable.project?.user?.email) {
+            (0, emailService_1.sendProcessUpdateEmail)({
+                to: deliverable.project.user.email,
+                category: 'APPROVAL',
+                title: action === 'APPROVE'
+                    ? `✅ Client Approved Deliverable v${deliverable.version}`
+                    : `🔄 Revision Requested: Deliverable v${deliverable.version}`,
+                description: action === 'APPROVE'
+                    ? `Client approved deliverable v${deliverable.version} for project "${deliverable.project.name}".`
+                    : `Client requested changes on deliverable v${deliverable.version} for project "${deliverable.project.name}".`,
+                projectName: deliverable.project.name,
+                metaDetails: [
+                    { label: 'Decision', value: action },
+                    { label: 'Deliverable', value: `Version ${deliverable.version}` },
+                    { label: 'Client Feedback', value: comments || 'None provided' },
+                    { label: 'Date', value: new Date().toLocaleString() }
+                ],
+                actionText: 'View Deliverables in Project',
+                actionUrl: `http://localhost:3000/projects/${deliverable.projectId}`
+            }).catch(err => console.error('[Approval Notification Error]', err));
+        }
         return approval;
+    });
+    // Client - Pay Invoice (Mock Payment)
+    server.post('/client/invoices/:id/pay', async (request, reply) => {
+        const { id } = request.params;
+        const clientToken = request.headers['x-client-token'];
+        if (!clientToken)
+            return reply.code(401).send({ error: 'Missing client token' });
+        const invoice = await index_1.prisma.invoice.findUnique({
+            where: { id },
+            include: { project: true }
+        });
+        if (!invoice || invoice.project.clientAccessParam !== clientToken) {
+            return reply.code(403).send({ error: 'Unauthorized' });
+        }
+        if (invoice.status === 'PAID') {
+            return invoice;
+        }
+        // Simulating Payment Success
+        const updatedInvoice = await index_1.prisma.invoice.update({
+            where: { id },
+            data: {
+                status: 'PAID',
+                paidAt: new Date(),
+                // In a real app we'd save Stripe transaction ID here
+            }
+        });
+        return updatedInvoice;
     });
 }

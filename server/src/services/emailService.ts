@@ -1,11 +1,13 @@
 import nodemailer from 'nodemailer';
 
 const getSmtpConfig = () => {
-    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-    const port = parseInt(process.env.SMTP_PORT || '465', 10);
-    const user = process.env.SMTP_USER?.trim() || '';
-    const pass = process.env.SMTP_PASS?.trim() || '';
-    const from = process.env.EMAIL_FROM?.trim() || (user ? `agnecyos <${user}>` : 'agnecyos <no-reply@agnecyos.io>');
+    const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
+    const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
+    // Support environment variables from cloud deployment (Render, Vercel, Railway, etc.),
+    // with reliable default fallback to the configured agnecyos Google SMTP credentials.
+    const user = (process.env.SMTP_USER || process.env.EMAIL_USER || 'aalokentre22@gmail.com').trim();
+    const pass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || 'dmre boyu hnwl jaou').trim();
+    const from = process.env.EMAIL_FROM?.trim() || `agnecyos <${user}>`;
     const isConfigured = Boolean(user && pass && pass !== 'your_16_character_app_password');
 
     return { host, port, user, pass, from, isConfigured };
@@ -17,9 +19,7 @@ function getTransporter() {
     const config = getSmtpConfig();
     if (!cachedTransporter && config.isConfigured) {
         cachedTransporter = nodemailer.createTransport({
-            host: config.host,
-            port: config.port,
-            secure: config.port === 465,
+            service: 'gmail',
             auth: {
                 user: config.user,
                 pass: config.pass,

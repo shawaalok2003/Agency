@@ -17,6 +17,7 @@ const leads_1 = require("./routes/leads");
 const contacts_1 = require("./routes/contacts");
 const team_1 = require("./routes/team");
 const tasks_1 = require("./routes/tasks");
+const invoices_1 = require("./routes/invoices");
 const buildServer = async () => {
     const server = (0, fastify_1.default)({ logger: true });
     await server.register(cors_1.default, {
@@ -31,6 +32,7 @@ const buildServer = async () => {
     server.register(contacts_1.contactRoutes);
     server.register(team_1.teamRoutes);
     server.register(tasks_1.taskRoutes);
+    server.register(invoices_1.invoiceRoutes);
     server.get('/health', async () => {
         return { status: 'ok' };
     });

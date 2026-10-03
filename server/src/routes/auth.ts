@@ -60,7 +60,7 @@ export async function authRoutes(server: FastifyInstance) {
                 success: true,
                 message: `6-digit verification code sent to ${normalizedEmail}`,
                 simulated: (emailResult as any).simulated || false,
-                devOtp: (emailResult as any).simulated ? otp : undefined
+                devOtp: (process.env.NODE_ENV !== 'production' && (emailResult as any).simulated) ? otp : undefined
             };
         } catch (error: any) {
             console.error('[Send OTP Error]', error);
@@ -202,7 +202,7 @@ export async function authRoutes(server: FastifyInstance) {
                 email: normalizedEmail,
                 message: `Security verification code sent to ${normalizedEmail}`,
                 simulated: (emailResult as any).simulated || false,
-                devOtp: (emailResult as any).simulated ? loginOtp : undefined
+                devOtp: (process.env.NODE_ENV !== 'production' && (emailResult as any).simulated) ? loginOtp : undefined
             });
         }
 

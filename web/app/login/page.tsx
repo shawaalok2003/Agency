@@ -344,7 +344,7 @@ export default function Login() {
                         </div>
                     )}
 
-                    {devOtp && (
+                    {process.env.NODE_ENV !== 'production' && devOtp && (
                         <div className="bg-indigo-500/15 text-indigo-300 p-3.5 rounded-xl mb-5 text-xs flex items-center justify-between border border-indigo-500/30">
                             <div>
                                 <span className="font-bold">Dev Simulation Mode:</span> OTP is{' '}

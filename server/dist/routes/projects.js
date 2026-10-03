@@ -47,12 +47,20 @@ async function projectRoutes(server) {
             orderBy: { updatedAt: 'desc' },
             include: {
                 invoices: true,
+                tasks: {
+                    include: { subtasks: true },
+                    orderBy: { createdAt: 'desc' }
+                },
+                deliverables: {
+                    include: { approvals: true },
+                    orderBy: { createdAt: 'desc' }
+                },
                 scopes: {
                     orderBy: { version: 'desc' },
                     take: 1
                 },
                 _count: {
-                    select: { deliverables: true, invoices: true },
+                    select: { deliverables: true, invoices: true, tasks: true },
                 },
             },
         });
@@ -88,5 +96,22 @@ async function projectRoutes(server) {
             data: { status: body.status }
         });
         return project;
+    });
+    server.delete('/projects/:id', { preHandler: [auth_1.authenticate] }, async (request, reply) => {
+        const { id } = request.params;
+        const userId = request.user.id;
+        const project = await index_1.prisma.project.findFirst({ where: { id, userId } });
+        if (!project)
+            return reply.code(404).send({ error: 'Project not found' });
+        // Clean up project relations
+        await index_1.prisma.subtask.deleteMany({ where: { task: { projectId: id } } });
+        await index_1.prisma.task.deleteMany({ where: { projectId: id } });
+        await index_1.prisma.approvalAuditLog.deleteMany({ where: { deliverable: { projectId: id } } });
+        await index_1.prisma.deliverable.deleteMany({ where: { projectId: id } });
+        await index_1.prisma.scope.deleteMany({ where: { projectId: id } });
+        await index_1.prisma.payment.deleteMany({ where: { invoice: { projectId: id } } });
+        await index_1.prisma.invoice.deleteMany({ where: { projectId: id } });
+        await index_1.prisma.project.delete({ where: { id } });
+        return { success: true };
     });
 }
