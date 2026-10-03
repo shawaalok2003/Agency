@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/src/api/client';
@@ -20,8 +20,17 @@ export default function Login() {
     const [devOtp, setDevOtp] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [resending, setResending] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+
+    useEffect(() => {
+        if (resendCooldown <= 0) return;
+        const timer = setTimeout(() => {
+            setResendCooldown(prev => prev - 1);
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, [resendCooldown]);
 
     // Send OTP for Sign Up
     const handleSendSignupOtp = async (e?: React.FormEvent) => {
@@ -43,6 +52,7 @@ export default function Login() {
         try {
             const { data } = await api.post('/auth/send-otp', { email });
             setStep('otp');
+            setResendCooldown(30);
             setSuccessMessage(data.message || `Verification code sent to ${email}`);
             if (data.devOtp) {
                 setDevOtp(data.devOtp);
@@ -66,6 +76,7 @@ export default function Login() {
                     password,
                 });
                 setSuccessMessage(`New security code sent to ${email}`);
+                setResendCooldown(30);
                 if (data.devOtp) {
                     setDevOtp(data.devOtp);
                 }
@@ -73,6 +84,7 @@ export default function Login() {
                 // For signup, trigger a fresh signup OTP dispatch
                 const { data } = await api.post('/auth/send-otp', { email });
                 setSuccessMessage(`New verification code sent to ${email}`);
+                setResendCooldown(30);
                 if (data.devOtp) {
                     setDevOtp(data.devOtp);
                 }
@@ -103,6 +115,7 @@ export default function Login() {
 
                     if (data.requireOtp) {
                         setStep('otp');
+                        setResendCooldown(30);
                         setSuccessMessage(data.message || `Security verification code sent to ${email}`);
                         if (data.devOtp) {
                             setDevOtp(data.devOtp);
@@ -444,11 +457,13 @@ export default function Login() {
                                         <button
                                             type="button"
                                             onClick={handleResendOtp}
-                                            disabled={resending}
-                                            className="text-indigo-400 hover:text-indigo-300 flex items-center gap-1 font-semibold transition-colors"
+                                            disabled={resending || resendCooldown > 0}
+                                            className={`flex items-center gap-1 font-semibold transition-colors ${
+                                                resendCooldown > 0 ? 'text-gray-500 cursor-not-allowed' : 'text-indigo-400 hover:text-indigo-300'
+                                            }`}
                                         >
                                             <RefreshCw size={12} className={resending ? 'animate-spin' : ''} />
-                                            {resending ? 'Sending...' : 'Resend Code'}
+                                            {resending ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
                                         </button>
                                     </div>
                                 </div>

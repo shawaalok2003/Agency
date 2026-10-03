@@ -20,6 +20,9 @@ function getTransporter() {
     if (!cachedTransporter && config.isConfigured) {
         cachedTransporter = nodemailer.createTransport({
             service: 'gmail',
+            pool: true,
+            maxConnections: 3,
+            maxMessages: 100,
             auth: {
                 user: config.user,
                 pass: config.pass,

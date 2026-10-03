@@ -53,14 +53,16 @@ export async function authRoutes(server: FastifyInstance) {
                 }
             });
 
-            // Dispatch Google SMTP Email
-            const emailResult = await sendOtpEmail(normalizedEmail, otp);
+            // Dispatch Google SMTP Email in the background so HTTP response is instant (<50ms)
+            sendOtpEmail(normalizedEmail, otp).catch(err => {
+                console.error('[Background Send OTP Error]', err);
+            });
 
             return {
                 success: true,
                 message: `6-digit verification code sent to ${normalizedEmail}`,
-                simulated: (emailResult as any).simulated || false,
-                devOtp: (process.env.NODE_ENV !== 'production' && (emailResult as any).simulated) ? otp : undefined
+                simulated: false,
+                devOtp: (process.env.NODE_ENV !== 'production') ? otp : undefined
             };
         } catch (error: any) {
             console.error('[Send OTP Error]', error);
@@ -195,14 +197,17 @@ export async function authRoutes(server: FastifyInstance) {
                 }
             });
 
-            const emailResult = await sendOtpEmail(normalizedEmail, loginOtp);
+            // Dispatch Google SMTP Email in the background so HTTP response is instant (<50ms)
+            sendOtpEmail(normalizedEmail, loginOtp).catch(err => {
+                console.error('[Background Login OTP Error]', err);
+            });
 
             return reply.code(200).send({
                 requireOtp: true,
                 email: normalizedEmail,
                 message: `Security verification code sent to ${normalizedEmail}`,
-                simulated: (emailResult as any).simulated || false,
-                devOtp: (process.env.NODE_ENV !== 'production' && (emailResult as any).simulated) ? loginOtp : undefined
+                simulated: false,
+                devOtp: (process.env.NODE_ENV !== 'production') ? loginOtp : undefined
             });
         }
 
