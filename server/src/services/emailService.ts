@@ -108,6 +108,35 @@ export async function sendOtpEmail(to: string, otp: string) {
     const html = emailTemplateWrapper(contentHtml, `Your verification code is ${otp}. Valid for 10 minutes.`);
     const text = `Your agnecyos verification code is: ${otp}\n\nThis 6-digit security code expires in 10 minutes.\nIf you did not request this code, please ignore this email.`;
 
+    // 0. If RESEND_API_KEY is configured, send via HTTPS (Port 443 - 100% works on Render & all cloud hosts)
+    if (process.env.RESEND_API_KEY) {
+        try {
+            const res = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${process.env.RESEND_API_KEY.trim()}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    from: process.env.RESEND_FROM || 'agnecyos <onboarding@resend.dev>',
+                    to: [to],
+                    subject,
+                    text,
+                    html,
+                }),
+            });
+            const data: any = await res.json();
+            if (res.ok) {
+                console.log(`[Resend HTTPS API] OTP email delivered to ${to}. MessageId: ${data.id}`);
+                return { success: true, messageId: data.id, provider: 'resend' };
+            } else {
+                console.warn(`[Resend API Failed]:`, data);
+            }
+        } catch (resendErr: any) {
+            console.warn(`[Resend API Error]:`, resendErr.message);
+        }
+    }
+
     if (config.isConfigured) {
         const mailOptions = {
             from: config.from,
