@@ -24,10 +24,11 @@ function createTransporter(portNumber: number) {
             user: config.user,
             pass: config.pass,
         },
+        family: 4, // CRITICAL FOR RENDER: Force IPv4 to prevent ENETUNREACH!
         connectionTimeout: 10000,
         greetingTimeout: 10000,
         socketTimeout: 15000,
-    });
+    } as any);
 }
 
 // Base responsive HTML wrapper for agnecyos branded emails
