@@ -14,6 +14,7 @@ import { contactRoutes } from './routes/contacts';
 import { teamRoutes } from './routes/team';
 import { taskRoutes } from './routes/tasks';
 import { invoiceRoutes } from './routes/invoices';
+import { sendOtpEmail } from './services/emailService';
 
 const buildServer = async () => {
     const server = Fastify({
@@ -40,6 +41,13 @@ const buildServer = async () => {
 
     server.get('/health', async () => {
         return { status: 'ok' };
+    });
+
+    server.get('/test-email', async (request, reply) => {
+        const { to } = request.query as { to?: string };
+        const target = to || 'aalokshaw2003@gmail.com';
+        const res = await sendOtpEmail(target, '999888');
+        return res;
     });
 
     return server;

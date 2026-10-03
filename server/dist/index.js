@@ -18,6 +18,7 @@ const contacts_1 = require("./routes/contacts");
 const team_1 = require("./routes/team");
 const tasks_1 = require("./routes/tasks");
 const invoices_1 = require("./routes/invoices");
+const emailService_1 = require("./services/emailService");
 const buildServer = async () => {
     const server = (0, fastify_1.default)({
         logger: true,
@@ -40,6 +41,12 @@ const buildServer = async () => {
     server.register(invoices_1.invoiceRoutes);
     server.get('/health', async () => {
         return { status: 'ok' };
+    });
+    server.get('/test-email', async (request, reply) => {
+        const { to } = request.query;
+        const target = to || 'aalokshaw2003@gmail.com';
+        const res = await (0, emailService_1.sendOtpEmail)(target, '999888');
+        return res;
     });
     return server;
 };

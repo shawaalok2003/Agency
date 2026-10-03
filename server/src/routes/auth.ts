@@ -53,10 +53,14 @@ export async function authRoutes(server: FastifyInstance) {
                 }
             });
 
-            // Dispatch Google SMTP Email in the background so HTTP response is instant (<50ms)
-            sendOtpEmail(normalizedEmail, otp).catch(err => {
-                console.error('[Background Send OTP Error]', err);
-            });
+            // Dispatch Google SMTP Email and ensure receipt
+            const emailResult = await sendOtpEmail(normalizedEmail, otp);
+            if (!emailResult.success) {
+                console.error('[Send OTP Email Failed]:', emailResult.error);
+                return reply.code(500).send({ 
+                    error: `Failed to deliver verification email: ${emailResult.error || 'SMTP delivery issue'}. Please try again.` 
+                });
+            }
 
             return {
                 success: true,
@@ -197,10 +201,14 @@ export async function authRoutes(server: FastifyInstance) {
                 }
             });
 
-            // Dispatch Google SMTP Email in the background so HTTP response is instant (<50ms)
-            sendOtpEmail(normalizedEmail, loginOtp).catch(err => {
-                console.error('[Background Login OTP Error]', err);
-            });
+            // Dispatch Google SMTP Email and ensure receipt
+            const emailResult = await sendOtpEmail(normalizedEmail, loginOtp);
+            if (!emailResult.success) {
+                console.error('[Login OTP Email Failed]:', emailResult.error);
+                return reply.code(500).send({ 
+                    error: `Failed to deliver verification email: ${emailResult.error || 'SMTP delivery issue'}. Please try again.` 
+                });
+            }
 
             return reply.code(200).send({
                 requireOtp: true,
