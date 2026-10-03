@@ -53,14 +53,9 @@ export default function FeaturesPage() {
                 {/* Top Navigation (Landing Page Style) */}
                 <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4">
                     <div className="glass max-w-7xl w-full flex items-center justify-between px-8 py-4 rounded-full">
-                        <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M4 4H17.3334V17.3334H30.6666V30.6666H44V44H4V4Z" fill="currentColor"></path>
-                                </svg>
-                            </div>
-                            <Link href="/" className="text-white text-xl font-bold tracking-tight">agnecyos</Link>
-                        </div>
+                        <Link href="/" className="flex items-center gap-3">
+                            <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                        </Link>
                         <div className="hidden md:flex items-center gap-8">
                             <Link href="/workflow" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Workflow</Link>
                             <Link href="/features" className="text-white text-sm font-medium transition-colors">Features</Link>
@@ -266,13 +261,10 @@ export default function FeaturesPage() {
                 <footer className="mt-auto px-8 lg:px-20 py-12 border-t border-[rgba(255,255,255,0.05)]">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                         <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 bg-[#1e13ec] rounded flex items-center justify-center">
-                                <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M4 4H17.3334V17.3334H30.6666V30.6666H44V44H4V4Z" fill="currentColor"></path>
-                                </svg>
-                            </div>
-                            <p className="text-sm font-bold">agnecyos</p>
-                            <p className="text-gray-500 text-sm ml-4 border-l border-[rgba(255,255,255,0.05)] pl-4">© 2024 agnecyos Inc.</p>
+                            <Link href="/">
+                                <img src="/logo.png" alt="agnecyos" className="h-8 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                            </Link>
+                            <p className="text-gray-500 text-sm ml-4 border-l border-[rgba(255,255,255,0.05)] pl-4">© 2026 agnecyos Inc.</p>
                         </div>
                         <div className="flex gap-8 text-sm text-gray-500">
                             <a className="hover:text-white transition-colors" href="#">Privacy</a>

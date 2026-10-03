@@ -4,30 +4,84 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/src/api/client';
-import { LinearRegression } from '@/src/utils/ml';
 import {
     LayoutGrid, Plus, DollarSign, Users, Briefcase, Activity, Target,
-    Search, MoreHorizontal, Phone, Mail, Calendar, UserPlus, CreditCard, ChevronRight, CheckCircle, FileText,
-    Star, Link as LinkIcon, Image, Share2, Code, Info, Zap
+    Search, Calendar, CreditCard, ChevronRight, CheckCircle, FileText,
+    Star, Trash2, Clock, TrendingUp, CheckSquare, ShieldCheck,
+    ArrowUpRight, Bell, Sparkles, Download, ExternalLink, X, Command,
+    AlertCircle, FolderPlus, UserCheck, Edit3, ArrowRight, ArrowLeft
 } from 'lucide-react';
 import Sidebar from '@/app/components/Sidebar';
 import LandingPage from '@/app/components/LandingPage';
-import OnboardingTour from '@/app/components/OnboardingTour';
 
-// --- Types ---
-interface Scope { price: number; }
-interface Invoice { id: string; amount: string; status: 'DRAFT' | 'SENT' | 'PAID'; }
+// --- Interfaces ---
+interface Scope {
+    id?: string;
+    price: number;
+    content?: string;
+}
+
+interface Payment {
+    id: string;
+    amount: number;
+    transactionId?: string;
+    status: string;
+    createdAt: string;
+}
+
+interface Invoice {
+    id: string;
+    projectId: string;
+    amount: number | string;
+    status: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE';
+    dueDate?: string;
+    paidAt?: string;
+    createdAt?: string;
+    project?: {
+        id: string;
+        name: string;
+        clientEmail?: string;
+    };
+    payments?: Payment[];
+}
+
+interface Task {
+    id: string;
+    projectId: string;
+    title: string;
+    status: string;
+    assignee?: string;
+    dueDate?: string;
+    createdAt?: string;
+    project?: {
+        id: string;
+        name: string;
+        clientEmail?: string;
+    };
+    subtasks?: Array<{ id: string; title: string; completed: boolean }>;
+}
+
 interface Project {
     id: string;
     name: string;
     clientEmail?: string;
     updatedAt: string;
-    invoices: Invoice[];
-    scopes: Scope[];
+    status?: string;
+    invoices?: Invoice[];
+    scopes?: Scope[];
+    tasks?: Task[];
+    deliverables?: any[];
+    _count?: {
+        deliverables?: number;
+        invoices?: number;
+        tasks?: number;
+    };
 }
+
 interface User {
     id: string;
     email: string;
+    role?: string;
     plan: 'FREE' | 'PRO';
     trialEndsAt: string | null;
 }
@@ -35,19 +89,21 @@ interface User {
 interface Lead {
     id: string;
     name: string;
-    company: string;
-    value: string; // comes as string from decimal
+    company?: string;
+    email?: string;
+    value: string | number;
     status: 'NEW' | 'DISCUSSION' | 'PROPOSAL' | 'WON' | 'LOST';
-    ownerId: string;
+    ownerId?: string;
+    createdAt?: string;
 }
 
 interface Contact {
     id: string;
     name: string;
-    role: string;
-    company: string;
+    role?: string;
+    company?: string;
     email: string;
-    type: string;
+    type?: string;
 }
 
 interface TeamMember {
@@ -55,15 +111,23 @@ interface TeamMember {
     name: string;
     role: string;
     email: string;
-    projectsCount: number;
-    rating: string;
+    projectsCount?: number;
+    rating?: string;
 }
 
-// --- Components ---
+// Format Currency to Indian Rupee (INR ₹)
+export function formatINR(amount: number | string): string {
+    const num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
 
-// NavItem component removed as it is now in Sidebar.tsx
-
-// --- Page Component ---
+export function formatCompactINR(amount: number | string): string {
+    const num = typeof amount === 'string' ? parseFloat(amount) || 0 : amount;
+    if (num >= 10000000) return `₹${(num / 10000000).toFixed(2)}Cr`;
+    if (num >= 100000) return `₹${(num / 100000).toFixed(2)}L`;
+    if (num >= 1000) return `₹${(num / 1000).toFixed(1)}K`;
+    return `₹${num.toLocaleString('en-IN')}`;
+}
 
 export default function Dashboard() {
     const router = useRouter();
@@ -71,32 +135,48 @@ export default function Dashboard() {
     const [loading, setLoading] = useState(true);
     const [showLanding, setShowLanding] = useState(false);
 
-    // Data State
+    // Live Real Database State (Zero Hardcoded / Random Arrays)
     const [projects, setProjects] = useState<Project[]>([]);
     const [leads, setLeads] = useState<Lead[]>([]);
     const [contacts, setContacts] = useState<Contact[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [team, setTeam] = useState<TeamMember[]>([]);
-
     const [user, setUser] = useState<User | null>(null);
 
-    // Modal State
-    const [modalType, setModalType] = useState<'project' | 'lead' | 'contact' | 'team' | null>(null);
+    // UI & Modal States
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [modalType, setModalType] = useState<'project' | 'lead' | 'contact' | 'task' | 'invoice' | 'payment' | 'team' | null>(null);
+    const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [formData, setFormData] = useState<any>({});
+    const [submitting, setSubmitting] = useState(false);
+    const [invoiceFilter, setInvoiceFilter] = useState<string>('ALL');
 
-    // Stats
-    const [stats, setStats] = useState({
-        totalRevenue: 0,
-        activeProjects: 0,
-        pendingInvoices: 0,
-        totalClients: 0
-    });
+    // Global keyboard shortcut for Command Palette (Ctrl+K or Cmd+K)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setIsCommandPaletteOpen(prev => !prev);
+            }
+            if (e.key === 'Escape') {
+                setIsCommandPaletteOpen(false);
+                setShowNotifications(false);
+                setModalType(null);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     useEffect(() => {
         checkAuthAndFetch();
     }, []);
 
     const checkAuthAndFetch = async () => {
-        const token = localStorage.getItem('token');
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
         if (!token) {
             setShowLanding(true);
             setLoading(false);
@@ -104,70 +184,37 @@ export default function Dashboard() {
         }
 
         try {
-            // Fetch User Profile First
             const userRes = await api.get('/auth/me');
             setUser(userRes.data);
             await refreshAllData();
         } catch (err: any) {
-            // Only log non-auth errors to console to avoid excessive noise
-            if (err.response?.status !== 401) {
-                console.error('Auth Check Error:', err);
+            if (err.response?.status === 401) {
+                setShowLanding(true);
             }
-
-            if (err.message === 'Network Error') {
-                alert('Back-end server is unreachable. Please ensure the server is running.');
-                setLoading(false);
-                return;
-            }
-
-            // If auth fails (401) or other error, strip token and show landing
-            localStorage.removeItem('token');
-            setUser(null);
-            setShowLanding(true);
             setLoading(false);
         }
     };
 
-
-
     const refreshAllData = async () => {
-        setLoading(true);
         try {
-            const [projRes, leadRes, contRes, teamRes] = await Promise.all([
+            const [projRes, leadRes, contRes, taskRes, invRes, teamRes] = await Promise.all([
                 api.get('/projects').catch(() => ({ data: [] })),
                 api.get('/leads').catch(() => ({ data: [] })),
                 api.get('/contacts').catch(() => ({ data: [] })),
+                api.get('/tasks').catch(() => ({ data: [] })),
+                api.get('/invoices').catch(() => ({ data: [] })),
                 api.get('/team').catch(() => ({ data: [] }))
             ]);
 
-            setProjects(projRes.data);
-            setLeads(leadRes.data);
-            setContacts(contRes.data);
-            setTeam(teamRes.data);
-
-            calculateStats(projRes.data);
+            setProjects(projRes.data || []);
+            setLeads(leadRes.data || []);
+            setContacts(contRes.data || []);
+            setTasks(taskRes.data || []);
+            setInvoices(invRes.data || []);
+            setTeam(teamRes.data || []);
         } finally {
             setLoading(false);
         }
-    };
-
-    const calculateStats = (data: Project[]) => {
-        let revenue = 0;
-        let pending = 0;
-        const clients = new Set();
-        data.forEach(p => {
-            if (p.clientEmail) clients.add(p.clientEmail);
-            p.invoices?.forEach(inv => {
-                const amount = parseFloat(inv.amount);
-                inv.status === 'PAID' ? revenue += amount : pending += amount;
-            });
-        });
-        setStats({
-            totalRevenue: revenue,
-            activeProjects: data.length,
-            pendingInvoices: pending,
-            totalClients: clients.size
-        });
     };
 
     const handleSignOut = () => {
@@ -175,1139 +222,1859 @@ export default function Dashboard() {
         router.push('/login');
     };
 
-    // Helper to remove empty strings which break Zod validation
-    const cleanPayload = (data: any) => {
-        const cleaned: any = {};
-        Object.keys(data).forEach(key => {
-            if (data[key] !== '' && data[key] !== undefined) {
-                cleaned[key] = data[key];
+    // Calculate real stats strictly from live user database records
+    const stats = useMemo(() => {
+        let totalRevenue = 0;
+        let pendingInvoices = 0;
+        const clientSet = new Set<string>();
+
+        // Tally invoices directly
+        invoices.forEach(inv => {
+            const amt = parseFloat(inv.amount.toString()) || 0;
+            if (inv.status === 'PAID') {
+                totalRevenue += amt;
+            } else {
+                pendingInvoices += amt;
             }
         });
-        return cleaned;
-    };
 
-    // Add to api/client.ts logic equivalent (in page.tsx useEffect for now or just trust manual signout)
+        // Also tally any project scopes if no standalone invoices were generated yet
+        if (invoices.length === 0) {
+            projects.forEach(p => {
+                const scopePrice = p.scopes?.[0]?.price || 0;
+                if (p.status === 'COMPLETED') {
+                    totalRevenue += Number(scopePrice);
+                } else if (p.status === 'ACTIVE') {
+                    pendingInvoices += Number(scopePrice);
+                }
+            });
+        }
 
-    // Enhanced Submit with Feedback
-    const [successMsg, setSuccessMsg] = useState('');
+        // Tally unique clients
+        contacts.forEach(c => {
+            if (c.email) clientSet.add(c.email.toLowerCase());
+        });
+        projects.forEach(p => {
+            if (p.clientEmail) clientSet.add(p.clientEmail.toLowerCase());
+        });
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSuccessMsg('');
+        return {
+            totalRevenue,
+            pendingInvoices,
+            activeProjects: projects.filter(p => p.status !== 'ARCHIVED').length,
+            totalClients: clientSet.size
+        };
+    }, [projects, invoices, contacts]);
+
+    // Live Operational Priorities directly from real user records
+    const operationalPriorities = useMemo(() => {
+        const now = new Date();
+
+        // 1. Overdue Tasks: dueDate < today and not DONE
+        const overdueTasks = tasks.filter(t => {
+            if (t.status === 'DONE') return false;
+            if (!t.dueDate) return false;
+            return new Date(t.dueDate) < now;
+        });
+
+        // 2. Overdue Invoices: status !== PAID and (status === OVERDUE or dueDate < today)
+        const overdueInvoices = invoices.filter(inv => {
+            if (inv.status === 'PAID') return false;
+            if (inv.status === 'OVERDUE') return true;
+            if (inv.dueDate && new Date(inv.dueDate) < now) return true;
+            return false;
+        });
+
+        // 3. Pending Deliverable Approvals
+        let pendingApprovalsCount = 0;
+        projects.forEach(p => {
+            p.deliverables?.forEach((d: any) => {
+                const hasApproval = d.approvals?.some((a: any) => a.action === 'APPROVE');
+                if (!hasApproval) pendingApprovalsCount++;
+            });
+        });
+
+        // 4. Projects with deadlines within next 48 hours
+        const upcomingProjectDeadlines = projects.filter(p => {
+            if (p.status === 'COMPLETED' || p.status === 'ARCHIVED') return false;
+            // Check tasks with upcoming deadline in next 2 days
+            return p.tasks?.some(t => {
+                if (!t.dueDate || t.status === 'DONE') return false;
+                const due = new Date(t.dueDate);
+                const diffHours = (due.getTime() - now.getTime()) / (1000 * 3600);
+                return diffHours >= 0 && diffHours <= 48;
+            });
+        });
+
+        return {
+            overdueTasks,
+            overdueInvoices,
+            pendingApprovalsCount,
+            upcomingProjectDeadlines
+        };
+    }, [tasks, invoices, projects]);
+
+    // Lead stage transition handler
+    const handleMoveLeadStage = async (leadId: string, currentStatus: string, direction: 'forward' | 'backward') => {
+        const stages: Array<'NEW' | 'DISCUSSION' | 'PROPOSAL' | 'WON' | 'LOST'> = ['NEW', 'DISCUSSION', 'PROPOSAL', 'WON'];
+        const currentIndex = stages.indexOf(currentStatus as any);
+        if (currentIndex === -1) return;
+
+        const nextIndex = direction === 'forward' ? currentIndex + 1 : currentIndex - 1;
+        if (nextIndex < 0 || nextIndex >= stages.length) return;
+
+        const newStatus = stages[nextIndex];
         try {
-            const cleaned = cleanPayload(formData);
-
-            if (modalType === 'project') {
-                await api.post('/projects', cleaned);
-            } else if (modalType === 'lead') {
-                const payload = { ...cleaned };
-                if (payload.value) payload.value = parseFloat(payload.value);
-                await api.post('/leads', payload);
-            } else if (modalType === 'contact') {
-                await api.post('/contacts', cleaned);
-            } else if (modalType === 'team') {
-                await api.post('/team', cleaned);
-            }
-
-            setSuccessMsg('Saved successfully!');
-            setTimeout(() => {
-                setModalType(null);
-                setFormData({});
-                setSuccessMsg('');
-                refreshAllData();
-            }, 1000);
-
-        } catch (err: any) {
-            console.error(err);
-            if (err.response?.status === 401) {
-                alert('Session expired. Please sign in again.');
-                localStorage.removeItem('token');
-                router.push('/login');
-                return;
-            }
-            const msg = err.response?.data?.error?.issues?.[0]?.message ||
-                err.response?.data?.error ||
-                err.message;
-            alert(`Failed to save: ${msg}`);
+            await api.patch(`/leads/${leadId}`, { status: newStatus });
+            refreshAllData();
+        } catch (e) {
+            alert('Failed to update lead status');
         }
     };
 
-    const handleInputChange = (field: string, value: string) => {
-        setFormData({ ...formData, [field]: value });
+    // Lead won conversion handler
+    const handleConvertWonLead = async (lead: Lead) => {
+        if (confirm(`Convert Won Lead "${lead.name}" (${lead.company || 'Client'}) into a project and client record?`)) {
+            try {
+                const clientEmail = lead.email || `${lead.name.toLowerCase().replace(/\s+/g, '')}@${(lead.company || 'client').toLowerCase().replace(/\s+/g, '')}.com`;
+
+                // 1. Create Contact
+                await api.post('/contacts', {
+                    name: lead.name,
+                    company: lead.company || 'Client Company',
+                    email: clientEmail,
+                    type: 'Client'
+                });
+
+                // 2. Create Project
+                await api.post('/projects', {
+                    name: `${lead.company || lead.name} Engagement`,
+                    clientEmail
+                });
+
+                // 3. Mark Lead as WON
+                await api.patch(`/leads/${lead.id}`, { status: 'WON' });
+
+                alert('Lead converted to Client and Project successfully!');
+                refreshAllData();
+            } catch (err: any) {
+                alert('Conversion failed: ' + (err.response?.data?.error || err.message));
+            }
+        }
     };
 
-    const handleWinLead = async (leadId: string, leadName: string) => {
-        const email = prompt(`Winning Lead: ${leadName}\n\nPlease enter the Client's Email to create the Project:`);
-        if (!email) return;
+    // Delete lead
+    const handleDeleteLead = async (leadId: string) => {
+        if (confirm('Are you sure you want to delete this lead?')) {
+            try {
+                await api.delete(`/leads/${leadId}`);
+                refreshAllData();
+            } catch (e) {
+                alert('Failed to delete lead');
+            }
+        }
+    };
 
+    // Delete contact
+    const handleDeleteContact = async (contactId: string) => {
+        if (confirm('Delete this client contact?')) {
+            try {
+                await api.delete(`/contacts/${contactId}`);
+                refreshAllData();
+            } catch (e) {
+                alert('Failed to delete contact');
+            }
+        }
+    };
+
+    // Delete project
+    const handleDeleteProject = async (projectId: string) => {
+        if (confirm('Are you sure you want to delete this project and all its tasks, deliverables, and invoices?')) {
+            try {
+                await api.delete(`/projects/${projectId}`);
+                refreshAllData();
+            } catch (e) {
+                alert('Failed to delete project');
+            }
+        }
+    };
+
+    // Delete invoice
+    const handleDeleteInvoice = async (invoiceId: string) => {
+        if (confirm('Delete this invoice?')) {
+            try {
+                await api.delete(`/invoices/${invoiceId}`);
+                refreshAllData();
+            } catch (e) {
+                alert('Failed to delete invoice');
+            }
+        }
+    };
+
+    // Task toggle handler
+    const handleToggleTaskStatus = async (task: Task) => {
+        const nextStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
         try {
-            await api.post(`/leads/${leadId}/win`, {
-                clientEmail: email,
-                projectName: leadName
+            await api.patch(`/tasks/${task.id}`, { status: nextStatus });
+            refreshAllData();
+        } catch (e) {
+            alert('Failed to update task');
+        }
+    };
+
+    // Task delete handler
+    const handleDeleteTask = async (taskId: string) => {
+        try {
+            await api.delete(`/tasks/${taskId}`);
+            refreshAllData();
+        } catch (e) {
+            alert('Failed to delete task');
+        }
+    };
+
+    // Record Payment Form submit
+    const handleRecordPayment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedInvoice) return;
+        setSubmitting(true);
+        try {
+            await api.post(`/invoices/${selectedInvoice.id}/payments`, {
+                amount: parseFloat(formData.amount || selectedInvoice.amount),
+                method: formData.method || 'UPI',
+                transactionId: formData.transactionId || `PAY-${Date.now()}`
             });
-            alert('Lead Won! Project created successfully.');
+            alert('Payment recorded successfully! Invoice marked as PAID.');
+            setModalType(null);
+            setSelectedInvoice(null);
+            setFormData({});
             refreshAllData();
         } catch (err: any) {
-            console.error(err);
-            alert(`Failed to win lead: ${err.response?.data?.error || err.message}`);
+            alert(err.response?.data?.error || err.message || 'Payment recording failed');
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    // --- Views ---
+    // Generic Modal Form Submit
+    const handleGenericSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setSubmitting(true);
+        try {
+            if (modalType === 'project') {
+                await api.post('/projects', {
+                    name: formData.name,
+                    clientEmail: formData.clientEmail || undefined
+                });
+            } else if (modalType === 'lead') {
+                await api.post('/leads', {
+                    name: formData.name,
+                    company: formData.company || undefined,
+                    email: formData.email || undefined,
+                    value: formData.value ? parseFloat(formData.value) : 0,
+                    status: formData.status || 'NEW'
+                });
+            } else if (modalType === 'contact') {
+                await api.post('/contacts', {
+                    name: formData.name,
+                    company: formData.company || undefined,
+                    email: formData.email,
+                    role: formData.role || undefined,
+                    type: formData.type || 'CLIENT'
+                });
+            } else if (modalType === 'task') {
+                await api.post('/tasks', {
+                    projectId: formData.projectId,
+                    title: formData.title,
+                    assignee: formData.assignee || undefined,
+                    status: formData.status || 'TODO',
+                    dueDate: formData.dueDate || undefined
+                });
+            } else if (modalType === 'invoice') {
+                await api.post('/invoices', {
+                    projectId: formData.projectId,
+                    amount: parseFloat(formData.amount),
+                    status: formData.status || 'DRAFT',
+                    dueDate: formData.dueDate || undefined
+                });
+            } else if (modalType === 'team') {
+                await api.post('/team', {
+                    name: formData.name,
+                    role: formData.role,
+                    email: formData.email
+                });
+            }
 
-    // --- Views ---
-
-    const StatsCard = ({ icon: Icon, label, value, sub, color }: any) => {
-        const colors: any = {
-            emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
-            amber: { bg: 'bg-amber-500/10', text: 'text-amber-500' },
-            blue: { bg: 'bg-blue-500/10', text: 'text-blue-500' },
-            purple: { bg: 'bg-purple-500/10', text: 'text-purple-500' },
-        };
-        const theme = colors[color] || colors.blue;
-
-        return (
-            <div className="bg-[#0f111a] border border-gray-800 p-6 rounded-2xl">
-                <div className="flex justify-between items-start mb-4">
-                    <div className={`p-3 rounded-xl ${theme.bg} ${theme.text}`}>
-                        <Icon size={24} />
-                    </div>
-                    <span className="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-2 py-1 rounded-full border border-emerald-500/20">
-                        +12.5%
-                    </span>
-                </div>
-                <div className="text-gray-400 text-sm font-medium mb-1">{label}</div>
-                <div className="text-3xl font-bold text-white tracking-tight">{value}</div>
-            </div>
-        );
+            setModalType(null);
+            setFormData({});
+            refreshAllData();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.message || 'Submission failed');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
-    const DashboardView = () => (
-        <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <h1 className="text-3xl font-bold text-white tracking-tight">Overview</h1>
-                <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#1e293b] text-gray-300 font-medium border border-gray-700 hover:bg-gray-700 transition-colors">
-                        <Calendar size={18} />
-                        Last 30 days
-                    </button>
+    // Account plan state
+    const isPro = user?.plan === 'PRO';
+    const isTrialActive = Boolean(user?.trialEndsAt && new Date(user.trialEndsAt) > new Date());
+    const trialDaysRemaining = user?.trialEndsAt
+        ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / (1000 * 3600 * 24)))
+        : 0;
+
+    // --- Dynamic Account Banner ---
+    const AccountPlanBanner = () => {
+        if (isPro) {
+            return (
+                <div className="bg-[#0b101d] border border-emerald-500/20 rounded-2xl p-4 mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                            <ShieldCheck size={20} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-white text-sm">Growth Plan Active</span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                    PRO
+                                </span>
+                            </div>
+                            <p className="text-xs text-gray-400">Unlimited Projects, Client Portals, and Invoices Enabled</p>
+                        </div>
+                    </div>
                     <button
-                        onClick={() => {
-                            const isTrialActive = user?.trialEndsAt && new Date(user.trialEndsAt) > new Date();
-                            const isPro = user?.plan === 'PRO';
-                            if (!isPro && !isTrialActive && projects.length >= 3) {
-                                alert('Free Plan Limit Reached (3 Projects). Please Upgrade.');
-                                return;
-                            }
-                            setModalType('project');
-                        }}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+                        onClick={() => alert("Subscription Management: Managed via Billing Settings.")}
+                        className="px-4 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-xs font-bold text-gray-300 border border-white/10 transition-colors shrink-0"
                     >
-                        <Plus size={20} /> New Project
+                        Manage Subscription
                     </button>
                 </div>
-            </header>
+            );
+        }
 
+        if (isTrialActive) {
+            return (
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-950 via-indigo-900 to-purple-950 p-6 mb-8 border border-indigo-500/30 shadow-xl shadow-indigo-950/30">
+                    <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 font-bold text-xs uppercase tracking-wider border border-indigo-500/30 flex items-center gap-1.5">
+                                    <Sparkles size={12} /> Pro Trial
+                                </span>
+                                <span className="text-white font-bold text-base">
+                                    Your Pro trial ends in {trialDaysRemaining} days
+                                </span>
+                            </div>
+                            <p className="text-indigo-200/80 text-sm max-w-xl">
+                                You are currently using all premium agency features including CRM Pipelines, GST billing, and Client Portals.
+                            </p>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (confirm("Upgrade to PRO plan to unlock unlimited projects?")) {
+                                    try {
+                                        await api.post('/auth/upgrade');
+                                        alert("Upgraded to PRO!");
+                                        window.location.reload();
+                                    } catch (e) {
+                                        alert("Upgrade failed.");
+                                    }
+                                }
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shrink-0"
+                        >
+                            Upgrade Plan
+                        </button>
+                    </div>
+                </div>
+            );
+        }
 
-            {/* Promotion Banner */}
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 p-8 md:p-10 mb-10 shadow-2xl shadow-indigo-900/20">
-                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div className="max-w-xl">
-                        <h2 className="text-3xl font-bold text-white mb-2">Experience the full power of agnecyos</h2>
-                        <p className="text-indigo-100 text-lg opacity-90">
-                            You have 5 days remaining in your premium trial. Unlock unlimited projects, custom subdomains, and advanced analytics for your whole team.
+        return (
+            <div className="relative overflow-hidden rounded-2xl bg-[#0f111a] p-6 mb-8 border border-white/[0.08]">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                    <div>
+                        <h3 className="text-base font-bold text-white mb-1">You are currently on the Free plan.</h3>
+                        <p className="text-gray-400 text-sm">
+                            Unlock unlimited projects, advanced client portals, and automated billing.
                         </p>
                     </div>
                     <button
                         onClick={async () => {
-                            if (confirm("Confirm upgrade to PRO plan? This will unlock unlimited projects.")) {
+                            if (confirm("Upgrade to Pro Plan?")) {
                                 try {
                                     await api.post('/auth/upgrade');
-                                    alert("Successfully upgraded to PRO!");
+                                    alert("Upgraded to Pro Plan!");
                                     window.location.reload();
                                 } catch (e) {
-                                    alert("Upgrade failed. Please try again.");
+                                    alert("Upgrade failed.");
                                 }
                             }
                         }}
-                        className="bg-white text-indigo-600 px-8 py-3.5 rounded-xl font-bold hover:bg-gray-50 transition-colors shadow-xl shrink-0"
+                        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shrink-0"
                     >
                         Upgrade Now
                     </button>
                 </div>
-                {/* Decorative circles */}
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+            </div>
+        );
+    };
+
+    // --- Top Navigation Header ---
+    const TopNavBar = ({ title, subtitle }: { title: string; subtitle?: string }) => (
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-5 border-b border-white/[0.06]">
+            <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{title}</h1>
+                {subtitle && <p className="text-xs md:text-sm text-gray-400 mt-0.5">{subtitle}</p>}
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                <StatsCard icon={DollarSign} label="Total Revenue" value={`$${stats.totalRevenue.toLocaleString()}`} color="emerald" />
-                <StatsCard icon={Activity} label="Pending Invoices" value={stats.pendingInvoices.toLocaleString()} color="amber" />
-                <StatsCard icon={Briefcase} label="Active Projects" value={stats.activeProjects} color="blue" />
-                <StatsCard icon={Users} label="Total Clients" value={stats.totalClients} color="purple" />
-            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+                {/* Global Search Input (opens Command Palette) */}
+                <button
+                    onClick={() => setIsCommandPaletteOpen(true)}
+                    className="flex items-center gap-3 bg-[#0a0f1d] hover:bg-[#111827] border border-white/[0.08] hover:border-white/[0.15] px-3.5 py-2 rounded-xl text-xs text-gray-400 transition-all shadow-sm group"
+                >
+                    <Search size={15} className="text-gray-500 group-hover:text-gray-300" />
+                    <span>Search projects, leads, clients...</span>
+                    <span className="ml-2 font-mono text-[10px] bg-white/[0.08] px-1.5 py-0.5 rounded text-gray-300 border border-white/10">
+                        Ctrl+K
+                    </span>
+                </button>
 
-            {/* Recent Projects Section */}
-            <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-white">Recent Projects</h2>
-                <button className="text-indigo-400 font-medium hover:text-indigo-300 text-sm">View all</button>
-            </div>
+                {/* Notifications Center */}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowNotifications(prev => !prev)}
+                        className="p-2.5 rounded-xl bg-[#0a0f1d] hover:bg-[#111827] border border-white/[0.08] text-gray-400 hover:text-white transition-colors relative"
+                        aria-label="Notifications"
+                    >
+                        <Bell size={18} />
+                        {(operationalPriorities.overdueTasks.length > 0 || operationalPriorities.overdueInvoices.length > 0) && (
+                            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-500 rounded-full ring-2 ring-[#030712] animate-pulse"></span>
+                        )}
+                    </button>
 
-            {projects.length === 0 ? (
-                <div className="text-center py-20 bg-[#0f111a] rounded-2xl border border-dashed border-gray-800">
-                    <h3 className="text-gray-400">No projects found. Create one to get started.</h3>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.slice(0, 3).map((project, idx) => {
-                        const projectValue = project.scopes?.[0]?.price || 0;
-                        // Mocking status/avatars to match visual design if not present
-                        const status = idx === 2 ? 'Review' : 'Active';
-                        const statusColor = status === 'Active' ? 'text-emerald-400' : 'text-gray-400';
-                        const statusDot = status === 'Active' ? 'bg-emerald-500' : 'bg-gray-500';
-
-                        const initials = project.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
-                        // Mocking random avatars
-                        const avatars = [
-                            { char: 'JD', color: 'bg-slate-700' },
-                            { char: 'AS', color: 'bg-slate-600' }
-                        ];
-
-                        return (
-                            <Link key={project.id} href={`/projects/${project.id}`}>
-                                <div className="group bg-[#0f111a] hover:bg-[#161b2e] border border-gray-800 p-6 rounded-2xl cursor-pointer transition-all hover:-translate-y-1 hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 h-full flex flex-col justify-between">
-
-                                    <div>
-                                        <div className="flex justify-between items-start mb-6">
-                                            <div className="w-14 h-14 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-                                                {initials}
-                                            </div>
-                                            <div className={`flex items-center gap-2 bg-[#1e293b] px-3 py-1.5 rounded-full text-xs font-semibold ${statusColor} border border-gray-700`}>
-                                                <div className={`w-2 h-2 rounded-full ${statusDot}`}></div>
-                                                {status}
-                                            </div>
+                    {showNotifications && (
+                        <div className="absolute right-0 top-12 w-80 bg-[#0a0f1d] border border-white/10 rounded-2xl shadow-2xl p-4 z-40">
+                            <div className="flex items-center justify-between pb-3 border-b border-white/[0.08] mb-3">
+                                <span className="font-bold text-xs text-white uppercase tracking-wider">Live System Alerts</span>
+                                <button
+                                    onClick={() => setShowNotifications(false)}
+                                    className="text-[11px] text-gray-400 hover:text-white"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                            <div className="space-y-2.5 max-h-64 overflow-y-auto text-xs">
+                                {operationalPriorities.overdueTasks.length > 0 ? (
+                                    operationalPriorities.overdueTasks.map(t => (
+                                        <div key={t.id} className="p-2.5 rounded-xl bg-red-950/20 border border-red-500/20 text-gray-300">
+                                            <div className="font-semibold text-red-400">Task Overdue: {t.title}</div>
+                                            <div className="text-[10px] text-gray-500 mt-0.5">{t.project?.name || 'Project task'}</div>
                                         </div>
-
-                                        <h3 className="font-bold text-lg text-white mb-1 group-hover:text-indigo-200 transition-colors">{project.name}</h3>
-                                        <p className="text-gray-500 text-sm mb-8">
-                                            {project.clientEmail || 'Web Development & Branding'}
-                                        </p>
+                                    ))
+                                ) : (
+                                    <div className="text-gray-500 text-xs py-4 text-center">
+                                        All tasks and deliverables on schedule.
                                     </div>
-
-                                    <div className="flex justify-between items-end border-t border-gray-800 pt-5">
-                                        <div>
-                                            <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Contract Value</div>
-                                            <div className="text-white font-bold font-mono">
-                                                ${parseFloat(projectValue.toString()).toLocaleString()}
-                                            </div>
-                                        </div>
-                                        <div className="flex -space-x-2">
-                                            {avatars.map((av, i) => (
-                                                <div key={i} className={`w-8 h-8 rounded-full ${av.color} border-2 border-[#0f111a] flex items-center justify-center text-[10px] text-white font-medium`}>
-                                                    {av.char}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </Link>
-                        );
-                    })}
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
-        </div>
+
+                {/* Primary Quick Create Button */}
+                <button
+                    onClick={() => {
+                        if (!isPro && !isTrialActive && projects.length >= 3) {
+                            alert('Free Plan Limit Reached (3 Projects). Please Upgrade.');
+                            return;
+                        }
+                        setModalType('project');
+                    }}
+                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
+                >
+                    <Plus size={16} /> New Project
+                </button>
+            </div>
+        </header>
     );
 
-    const LeadsView = () => {
-        // Calculate dynamic stats
-        const totalValue = leads.reduce((acc, lead) => acc + (parseFloat(lead.value) || 0), 0);
-        const conversionRate = leads.length > 0 ? Math.round((leads.filter(l => l.status === 'WON').length / leads.length) * 100) : 0;
+    // --- Command Palette Component (Ctrl+K) ---
+    const CommandPalette = () => {
+        if (!isCommandPaletteOpen) return null;
+
+        const actionList = [
+            { id: 'act-proj', label: 'Create New Project', action: () => { setModalType('project'); setIsCommandPaletteOpen(false); }, icon: Plus },
+            { id: 'act-lead', label: 'Add Sales Lead', action: () => { setModalType('lead'); setIsCommandPaletteOpen(false); }, icon: Target },
+            { id: 'act-client', label: 'Add Client Contact', action: () => { setModalType('contact'); setIsCommandPaletteOpen(false); }, icon: Users },
+            { id: 'act-task', label: 'Create Project Task', action: () => { setModalType('task'); setIsCommandPaletteOpen(false); }, icon: CheckSquare },
+            { id: 'act-inv', label: 'Generate GST Invoice', action: () => { setModalType('invoice'); setIsCommandPaletteOpen(false); }, icon: FileText },
+            { id: 'act-portal', label: 'Open Client Portal Preview', action: () => { router.push('/portal/preview'); setIsCommandPaletteOpen(false); }, icon: ExternalLink },
+            { id: 'act-sett', label: 'Open Settings', action: () => { setActiveView('settings'); setIsCommandPaletteOpen(false); }, icon: Command }
+        ].filter(a => a.label.toLowerCase().includes(searchQuery.toLowerCase()));
 
         return (
-            <div className="h-full flex flex-col bg-[#030712] -m-8 p-8"> {/* Full screen override style */}
-                {/* Top Navigation Bar - Matching Screenshot */}
-                <header className="flex justify-between items-center mb-8">
-                    <div className="flex items-center gap-12">
-                        <div className="flex items-center gap-2">
-                            <div className="bg-indigo-600 p-1.5 rounded-lg">
-                                <LayoutGrid size={16} className="text-white" />
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center pt-24 p-4">
+                <div className="bg-[#0a0f1d] border border-white/10 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                    <div className="p-4 border-b border-white/[0.08] flex items-center gap-3">
+                        <Search size={18} className="text-gray-400 shrink-0" />
+                        <input
+                            type="text"
+                            autoFocus
+                            placeholder="Type a command, jump to a view, or search records..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full bg-transparent text-white text-sm focus:outline-none placeholder-gray-500"
+                        />
+                        <button onClick={() => setIsCommandPaletteOpen(false)} className="text-gray-500 hover:text-white p-1">
+                            <X size={18} />
+                        </button>
+                    </div>
+
+                    <div className="p-2 max-h-80 overflow-y-auto space-y-1">
+                        <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                            Quick Actions
+                        </div>
+                        {actionList.map((action) => {
+                            const ActionIcon = action.icon;
+                            return (
+                                <button
+                                    key={action.id}
+                                    onClick={action.action}
+                                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left text-sm text-gray-200 hover:bg-white/[0.06] hover:text-white transition-colors group"
+                                >
+                                    <div className="p-1.5 rounded-lg bg-white/[0.05] group-hover:bg-indigo-500/20 text-gray-400 group-hover:text-indigo-400 transition-colors">
+                                        <ActionIcon size={16} />
+                                    </div>
+                                    <span className="font-medium flex-1">{action.label}</span>
+                                    <ChevronRight size={14} className="text-gray-600 group-hover:text-gray-400" />
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className="px-4 py-2.5 bg-black/30 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-gray-500">
+                        <span>Navigate with keyboard • ESC to close</span>
+                        <span className="font-mono bg-white/[0.05] px-1.5 py-0.5 rounded border border-white/10">agnecyos</span>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // --- Overview View (Strictly Live Data) ---
+    const DashboardOverview = () => {
+        return (
+            <div className="max-w-7xl mx-auto space-y-8">
+                <TopNavBar
+                    title="Overview"
+                    subtitle="Executive agency performance, operational priorities, and financial health."
+                />
+
+                <AccountPlanBanner />
+
+                {/* 4 Key Metric Cards (Real Values) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <div className="bg-[#0a0f1d] border border-white/[0.07] p-5 rounded-2xl flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">TOTAL REVENUE</span>
+                            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                                <DollarSign size={18} />
                             </div>
-                            <span className="font-bold text-white text-lg tracking-tight">agnecyos</span>
                         </div>
-
-                        <div className="relative">
-                            <Search className="absolute left-3 top-2.5 text-gray-500" size={16} />
-                            <input
-                                type="text"
-                                placeholder="Search leads..."
-                                className="bg-[#111827] border border-gray-800 text-gray-300 text-sm rounded-full pl-10 pr-4 py-2 w-64 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all placeholder-gray-600"
-                            />
+                        <div className="text-2xl lg:text-3xl font-bold text-white font-mono tracking-tight mb-2">
+                            {formatINR(stats.totalRevenue)}
+                        </div>
+                        <div className="text-xs text-gray-500 font-medium">
+                            {invoices.filter(i => i.status === 'PAID').length} paid invoices collected
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-8">
-                        <nav className="flex items-center gap-6 text-sm font-medium text-gray-400">
-                            <a href="#" className="hover:text-white transition-colors">Dashboard</a>
-                            <a href="#" className="text-white border-b-2 border-indigo-500 pb-0.5">Leads</a>
-                            <a href="#" className="hover:text-white transition-colors">Deals</a>
-                            <a href="#" className="hover:text-white transition-colors">Tasks</a>
-                        </nav>
-
-                        <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setModalType('lead')}
-                                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
-                            >
-                                <Plus size={16} /> Add Lead
-                            </button>
-                            {user && (
-                                <div className="w-9 h-9 rounded-full bg-amber-100 border-2 border-[#1f2937] flex items-center justify-center overflow-hidden">
-                                    <span className="text-amber-800 font-bold text-xs">
-                                        {(user.email || 'U').charAt(0).toUpperCase()}
-                                    </span>
-                                </div>
-                            )}
+                    <div className="bg-[#0a0f1d] border border-white/[0.07] p-5 rounded-2xl flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">OUTSTANDING</span>
+                            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+                                <Activity size={18} />
+                            </div>
+                        </div>
+                        <div className="text-2xl lg:text-3xl font-bold text-white font-mono tracking-tight mb-2">
+                            {formatINR(stats.pendingInvoices)}
+                        </div>
+                        <div className="text-xs text-gray-500 font-medium">
+                            {invoices.filter(i => i.status !== 'PAID').length} pending client payments
                         </div>
                     </div>
-                </header>
 
-                {/* Page Title & Actions */}
-                <div className="flex justify-between items-end mb-8">
-                    <div>
-                        <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Leads Pipeline</h1>
-                        <p className="text-gray-500">Manage your sales opportunities and track progress across stages.</p>
+                    <div className="bg-[#0a0f1d] border border-white/[0.07] p-5 rounded-2xl flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">ACTIVE PROJECTS</span>
+                            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
+                                <Briefcase size={18} />
+                            </div>
+                        </div>
+                        <div className="text-2xl lg:text-3xl font-bold text-white font-mono tracking-tight mb-2">
+                            {stats.activeProjects}
+                        </div>
+                        <div className="text-xs text-gray-500 font-medium">
+                            {projects.filter(p => p.status === 'COMPLETED').length} completed to date
+                        </div>
                     </div>
-                    <div className="flex gap-3">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-[#111827] border border-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
-                            <Briefcase size={16} /> Filter
-                        </button>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-[#111827] border border-gray-800 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
-                            <MoreHorizontal size={16} /> Sort
-                        </button>
+
+                    <div className="bg-[#0a0f1d] border border-white/[0.07] p-5 rounded-2xl flex flex-col justify-between">
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">ACTIVE CLIENTS</span>
+                            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                                <Users size={18} />
+                            </div>
+                        </div>
+                        <div className="text-2xl lg:text-3xl font-bold text-white font-mono tracking-tight mb-2">
+                            {stats.totalClients}
+                        </div>
+                        <div className="text-xs text-gray-500 font-medium">
+                            {contacts.length} client accounts registered
+                        </div>
                     </div>
                 </div>
 
-                {/* Kanban Board */}
-                <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
-                    <div className="flex gap-6 h-full min-w-max">
-                        {['NEW', 'DISCUSSION', 'PROPOSAL', 'WON', 'LOST'].map((status) => {
-                            const filteredLeads = leads.filter(l => l.status === status);
-                            if (status === 'LOST' && filteredLeads.length === 0) return null;
+                {/* Today's Priorities (My Work - Computed directly from live data) */}
+                <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                                <Clock size={16} />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold text-white tracking-tight">Today&apos;s Priorities</h2>
+                                <p className="text-xs text-gray-400">Immediate operational items that require your action today.</p>
+                            </div>
+                        </div>
+                        <span className="text-[11px] font-mono text-gray-400">{new Date().toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    </div>
 
-                            const statusColors: any = {
-                                NEW: { dot: 'bg-blue-500', text: 'text-gray-300' },
-                                DISCUSSION: { dot: 'bg-amber-500', text: 'text-gray-300' },
-                                PROPOSAL: { dot: 'bg-purple-500', text: 'text-gray-300' },
-                                WON: { dot: 'bg-emerald-500', text: 'text-gray-300' },
-                                LOST: { dot: 'bg-red-500', text: 'text-gray-300' },
-                            };
-                            const theme = statusColors[status] || statusColors.NEW;
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div
+                            onClick={() => setActiveView('tasks')}
+                            className="p-4 rounded-xl bg-red-950/20 border border-red-500/20 hover:border-red-500/40 cursor-pointer transition-all group"
+                        >
+                            <div className="flex items-center gap-2 text-red-400 text-xs font-bold mb-1">
+                                <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                {operationalPriorities.overdueTasks.length} Overdue Tasks
+                            </div>
+                            <p className="text-xs text-gray-300 font-medium truncate">
+                                {operationalPriorities.overdueTasks.length > 0 ? operationalPriorities.overdueTasks[0].title : 'No overdue tasks'}
+                            </p>
+                            <span className="text-[10px] text-gray-400 group-hover:text-red-300 mt-2 inline-flex items-center gap-1">
+                                View Tasks <ChevronRight size={12} />
+                            </span>
+                        </div>
 
-                            return (
-                                <div key={status} className="w-[320px] flex flex-col shrink-0">
-                                    {/* Column Header */}
-                                    <div className="flex items-center justify-between mb-4 px-1">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full ${theme.dot}`}></div>
-                                            <span className={`text-xs font-bold tracking-widest uppercase ${theme.text}`}>{status}</span>
-                                            <span className="bg-[#1f2937] text-gray-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                                {filteredLeads.length}
-                                            </span>
-                                        </div>
-                                        <button className="text-gray-600 hover:text-gray-400">
-                                            <MoreHorizontal size={16} />
-                                        </button>
-                                    </div>
+                        <div
+                            onClick={() => setActiveView('approvals')}
+                            className="p-4 rounded-xl bg-amber-950/20 border border-amber-500/20 hover:border-amber-500/40 cursor-pointer transition-all group"
+                        >
+                            <div className="flex items-center gap-2 text-amber-400 text-xs font-bold mb-1">
+                                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                                {operationalPriorities.pendingApprovalsCount} Approvals Waiting
+                            </div>
+                            <p className="text-xs text-gray-300 font-medium truncate">
+                                {operationalPriorities.pendingApprovalsCount > 0 ? 'Deliverables pending sign-off' : 'All deliverables reviewed'}
+                            </p>
+                            <span className="text-[10px] text-gray-400 group-hover:text-amber-300 mt-2 inline-flex items-center gap-1">
+                                Check Approvals <ChevronRight size={12} />
+                            </span>
+                        </div>
 
-                                    {/* Cards */}
-                                    <div className="space-y-3 overflow-y-auto flex-1 custom-scrollbar pr-2">
-                                        {filteredLeads.map(lead => (
-                                            <div
-                                                key={lead.id}
-                                                className="group bg-[#0f111a] hover:bg-[#161b2e] border border-gray-800 p-5 rounded-xl cursor-pointer transition-all hover:border-gray-700 hover:shadow-lg relative"
-                                            >
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <div className={`p-2 rounded-lg ${status === 'NEW' ? 'bg-blue-500/10 text-blue-400' : 'bg-indigo-500/10 text-indigo-400'}`}>
-                                                        {status === 'NEW' ? <LayoutGrid size={16} /> : <Briefcase size={16} />}
+                        <div
+                            onClick={() => setActiveView('finance')}
+                            className="p-4 rounded-xl bg-indigo-950/20 border border-indigo-500/20 hover:border-indigo-500/40 cursor-pointer transition-all group"
+                        >
+                            <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold mb-1">
+                                <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                {operationalPriorities.overdueInvoices.length} Overdue Invoices
+                            </div>
+                            <p className="text-xs text-gray-300 font-medium truncate">
+                                {formatINR(operationalPriorities.overdueInvoices.reduce((acc, i) => acc + (parseFloat(i.amount.toString()) || 0), 0))} pending collection
+                            </p>
+                            <span className="text-[10px] text-gray-400 group-hover:text-indigo-300 mt-2 inline-flex items-center gap-1">
+                                View Invoices <ChevronRight size={12} />
+                            </span>
+                        </div>
+
+                        <div
+                            onClick={() => setActiveView('projects')}
+                            className="p-4 rounded-xl bg-blue-950/20 border border-blue-500/20 hover:border-blue-500/40 cursor-pointer transition-all group"
+                        >
+                            <div className="flex items-center gap-2 text-blue-400 text-xs font-bold mb-1">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                {operationalPriorities.upcomingProjectDeadlines.length} Upcoming Deadlines
+                            </div>
+                            <p className="text-xs text-gray-300 font-medium truncate">
+                                {operationalPriorities.upcomingProjectDeadlines.length > 0 ? operationalPriorities.upcomingProjectDeadlines[0].name : 'No urgent deadlines today'}
+                            </p>
+                            <span className="text-[10px] text-gray-400 group-hover:text-blue-300 mt-2 inline-flex items-center gap-1">
+                                Check Projects <ChevronRight size={12} />
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Recent Projects Section */}
+                <div>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-bold text-white">Recent Projects</h2>
+                        <button
+                            onClick={() => setActiveView('projects')}
+                            className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                        >
+                            View all projects ({projects.length}) <ChevronRight size={14} />
+                        </button>
+                    </div>
+
+                    {projects.length === 0 ? (
+                        <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
+                            <FolderPlus size={36} className="text-indigo-400 mx-auto mb-3" />
+                            <h3 className="text-base font-bold text-white mb-1">No projects created yet</h3>
+                            <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
+                                Add your first client project to start tracking scopes, tasks, and client approvals.
+                            </p>
+                            <button
+                                onClick={() => setModalType('project')}
+                                className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
+                            >
+                                <Plus size={16} /> Create Project
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                            {projects.slice(0, 3).map((project) => {
+                                const totalProjectTasks = project.tasks?.length || 0;
+                                const completedTasks = project.tasks?.filter(t => t.status === 'DONE').length || 0;
+                                const progressPct = totalProjectTasks > 0 ? Math.round((completedTasks / totalProjectTasks) * 100) : 0;
+                                const contractValue = project.scopes?.[0]?.price || 0;
+
+                                return (
+                                    <Link key={project.id} href={`/projects/${project.id}`}>
+                                        <div className="bg-[#0a0f1d] hover:bg-[#111827] border border-white/[0.08] hover:border-indigo-500/40 p-6 rounded-2xl transition-all hover:-translate-y-1 shadow-lg group flex flex-col justify-between h-full">
+                                            <div>
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="w-12 h-12 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-lg">
+                                                        {project.name.charAt(0)}
                                                     </div>
-                                                    <span className="text-[10px] text-gray-500 font-medium">2d ago</span>
+                                                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 flex items-center gap-1.5">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                        {project.status || 'ACTIVE'}
+                                                    </span>
                                                 </div>
 
-                                                <h4 className="font-bold text-white mb-1 group-hover:text-indigo-300 transition-colors">
-                                                    {lead.name}
-                                                </h4>
-                                                <p className="text-xs text-gray-500 mb-4">{lead.company}</p>
+                                                <h3 className="font-bold text-base text-white mb-1 group-hover:text-indigo-300 transition-colors">
+                                                    {project.name}
+                                                </h3>
+                                                <p className="text-xs text-gray-400 mb-5">
+                                                    {project.clientEmail || 'No client email assigned'}
+                                                </p>
 
-                                                <div className="flex justify-between items-center mt-auto">
-                                                    <span className="text-emerald-400 font-bold font-mono text-sm">
-                                                        ${parseFloat(lead.value).toLocaleString()}
-                                                    </span>
+                                                {/* Tasks completion ratio */}
+                                                <div className="space-y-1.5 mb-5">
+                                                    <div className="flex justify-between text-xs">
+                                                        <span className="text-gray-400">{completedTasks} / {totalProjectTasks} tasks done</span>
+                                                        <span className="font-bold text-white font-mono">{progressPct}%</span>
+                                                    </div>
+                                                    <div className="w-full bg-white/[0.06] h-2 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-gradient-to-r from-indigo-500 to-emerald-400 rounded-full transition-all"
+                                                            style={{ width: `${progressPct}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                                    {status !== 'WON' && (
-                                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between text-xs">
+                                                <div>
+                                                    <div className="text-[10px] text-gray-500 font-bold uppercase">Contract Value</div>
+                                                    <div className="font-bold text-white font-mono text-sm">{formatINR(contractValue)}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-[10px] text-gray-500 font-bold uppercase">Updated</div>
+                                                    <div className="text-gray-300 font-medium">{new Date(project.updatedAt).toLocaleDateString()}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Project Profitability Breakdown (Real Projects) */}
+                <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 className="text-base font-bold text-white flex items-center gap-2">
+                                <TrendingUp size={18} className="text-emerald-400" /> Project Profitability &amp; Financials
+                            </h2>
+                            <p className="text-xs text-gray-400">Real-time revenue collected vs outstanding balances per project.</p>
+                        </div>
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                            {projects.length} Active Projects
+                        </span>
+                    </div>
+
+                    {projects.length === 0 ? (
+                        <div className="py-8 text-center text-gray-500 text-xs">
+                            No project financial data yet. Add a project and generate invoices to track profitability.
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                                <thead className="text-gray-400 uppercase tracking-wider font-bold border-b border-white/[0.06]">
+                                    <tr>
+                                        <th className="pb-3 pl-2">Project</th>
+                                        <th className="pb-3">Client</th>
+                                        <th className="pb-3">Contract Value</th>
+                                        <th className="pb-3">Collected (Paid)</th>
+                                        <th className="pb-3">Pending</th>
+                                        <th className="pb-3 text-right pr-2">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.04]">
+                                    {projects.map((proj) => {
+                                        const contractVal = proj.scopes?.[0]?.price || 0;
+                                        let paidAmt = 0;
+                                        let pendingAmt = 0;
+                                        proj.invoices?.forEach(inv => {
+                                            const a = parseFloat(inv.amount.toString()) || 0;
+                                            if (inv.status === 'PAID') paidAmt += a;
+                                            else pendingAmt += a;
+                                        });
+
+                                        return (
+                                            <tr key={proj.id} className="hover:bg-white/[0.02] transition-colors">
+                                                <td className="py-3.5 pl-2 font-medium text-white">{proj.name}</td>
+                                                <td className="py-3.5 text-gray-400">{proj.clientEmail || 'N/A'}</td>
+                                                <td className="py-3.5 font-mono text-gray-200">{formatINR(contractVal)}</td>
+                                                <td className="py-3.5 font-mono font-bold text-emerald-400">{formatINR(paidAmt)}</td>
+                                                <td className="py-3.5 font-mono text-amber-400">{formatINR(pendingAmt)}</td>
+                                                <td className="py-3.5 text-right pr-2">
+                                                    <Link href={`/projects/${proj.id}`} className="text-indigo-400 hover:text-indigo-300 font-bold">
+                                                        Manage &rarr;
+                                                    </Link>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    // --- Leads CRM Pipeline (5-Stage Kanban) ---
+    const LeadsView = () => {
+        const crmStages: Array<'NEW' | 'DISCUSSION' | 'PROPOSAL' | 'WON' | 'LOST'> = [
+            'NEW', 'DISCUSSION', 'PROPOSAL', 'WON', 'LOST'
+        ];
+
+        const totalValue = leads.reduce((acc, l) => acc + (parseFloat(l.value?.toString() || '0') || 0), 0);
+
+        return (
+            <div className="space-y-6">
+                <TopNavBar
+                    title="Leads Pipeline"
+                    subtitle="Track sales opportunities from initial inquiry to signed client contract."
+                />
+
+                <div className="flex items-center justify-between bg-[#0a0f1d] p-4 rounded-2xl border border-white/[0.08] flex-wrap gap-4">
+                    <div className="flex items-center gap-6 text-xs">
+                        <div>
+                            <span className="text-gray-400">Total Pipeline Value:</span>{' '}
+                            <span className="font-bold text-emerald-400 font-mono text-sm">{formatINR(totalValue)}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-400">Total Leads:</span>{' '}
+                            <span className="font-bold text-white">{leads.length}</span>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setModalType('lead')}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow"
+                    >
+                        <Plus size={14} /> Add Lead
+                    </button>
+                </div>
+
+                {/* 5-Stage Kanban Board */}
+                <div className="overflow-x-auto pb-4">
+                    <div className="flex gap-4 min-w-max">
+                        {crmStages.map((stage) => {
+                            const stageLeads = leads.filter(l => l.status === stage);
+                            const stageTotal = stageLeads.reduce((acc, l) => acc + (parseFloat(l.value?.toString() || '0') || 0), 0);
+
+                            const stageThemes: any = {
+                                NEW: { dot: 'bg-blue-500', name: 'New Inquiries' },
+                                DISCUSSION: { dot: 'bg-amber-500', name: 'Discussion / Discovery' },
+                                PROPOSAL: { dot: 'bg-purple-500', name: 'Proposal Sent' },
+                                WON: { dot: 'bg-emerald-500', name: 'Won (Signed)' },
+                                LOST: { dot: 'bg-red-500', name: 'Closed Lost' },
+                            };
+                            const theme = stageThemes[stage] || stageThemes.NEW;
+
+                            return (
+                                <div key={stage} className="w-72 bg-[#0a0f1d] rounded-2xl border border-white/[0.08] p-4 flex flex-col">
+                                    <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.06]">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`w-2 h-2 rounded-full ${theme.dot}`}></span>
+                                            <span className="text-xs font-bold text-white uppercase tracking-wider">{stage}</span>
+                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-white/[0.06] text-gray-300">
+                                                {stageLeads.length}
+                                            </span>
+                                        </div>
+                                        <span className="text-[11px] font-mono text-gray-400 font-semibold">{formatCompactINR(stageTotal)}</span>
+                                    </div>
+
+                                    <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px] pr-1">
+                                        {stageLeads.map((lead) => (
+                                            <div
+                                                key={lead.id}
+                                                className="bg-[#111827] hover:bg-[#162032] border border-white/[0.06] hover:border-indigo-500/30 p-4 rounded-xl transition-all shadow-sm group"
+                                            >
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <h4 className="text-xs font-bold text-white group-hover:text-indigo-300 transition-colors">
+                                                        {lead.company || lead.name}
+                                                    </h4>
+                                                    <button
+                                                        onClick={() => handleDeleteLead(lead.id)}
+                                                        className="text-gray-600 hover:text-red-400 transition-colors p-1"
+                                                        title="Delete Lead"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </div>
+
+                                                <div className="text-[11px] text-gray-400 mb-2">
+                                                    {lead.name} {lead.email ? `• ${lead.email}` : ''}
+                                                </div>
+
+                                                <div className="text-xs font-mono font-bold text-emerald-400 mb-3">
+                                                    {formatINR(lead.value)}
+                                                </div>
+
+                                                {/* Stage movement actions */}
+                                                <div className="pt-2 border-t border-white/[0.04] flex items-center justify-between">
+                                                    <div className="flex gap-1">
+                                                        {stage !== 'NEW' && (
                                                             <button
-                                                                onClick={(e) => { e.stopPropagation(); handleWinLead(lead.id, lead.name); }}
-                                                                className="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-md hover:bg-emerald-500 hover:text-white transition-colors"
-                                                                title="Mark as Won"
+                                                                onClick={() => handleMoveLeadStage(lead.id, lead.status, 'backward')}
+                                                                className="p-1 rounded bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white"
+                                                                title="Move Back"
                                                             >
-                                                                <CheckCircle size={14} />
+                                                                <ArrowLeft size={12} />
                                                             </button>
-                                                        </div>
-                                                    )}
-                                                    {status === 'WON' && (
-                                                        <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300 font-bold">
-                                                            {(user?.email || 'U').charAt(0).toUpperCase()}
-                                                        </div>
+                                                        )}
+                                                        {stage !== 'WON' && stage !== 'LOST' && (
+                                                            <button
+                                                                onClick={() => handleMoveLeadStage(lead.id, lead.status, 'forward')}
+                                                                className="p-1 rounded bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white"
+                                                                title="Move Forward"
+                                                            >
+                                                                <ArrowRight size={12} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {stage !== 'WON' ? (
+                                                        <button
+                                                            onClick={() => handleConvertWonLead(lead)}
+                                                            className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                                        >
+                                                            <CheckCircle size={11} /> Convert
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded border border-emerald-500/30">
+                                                            Won Deal ✓
+                                                        </span>
                                                     )}
                                                 </div>
                                             </div>
                                         ))}
+
+                                        {stageLeads.length === 0 && (
+                                            <div className="text-center py-8 text-gray-600 text-xs border border-dashed border-white/[0.05] rounded-xl">
+                                                No leads in {stage.toLowerCase()}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
                 </div>
-
-                {/* Footer Status Bar */}
-                <div className="grid grid-cols-4 gap-8 border-t border-gray-800 pt-4 mt-2">
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Value:</span>
-                        <span className="text-emerald-400 font-bold font-mono">${totalValue.toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Conversion Rate:</span>
-                        <span className="text-indigo-400 font-bold font-mono">{conversionRate}%</span>
-                    </div>
-                    <div className="col-span-2 flex justify-end items-center gap-6">
-                        <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Active Projects</span>
-                        </div>
-                        <span className="text-white font-bold">{projects.length}</span>
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider border-l border-gray-700 pl-6">12 New Inquiries Today</span>
-                    </div>
-                </div>
             </div>
         );
     };
 
-    const FinanceView = () => {
-        const [monthlyExpenses, setMonthlyExpenses] = useState(5000);
-        const [revenueGoal, setRevenueGoal] = useState(20000);
-
-        // --- ML PREDICTION LOGIC ---
-        // Mock Historical Data (Last 6 months)
-        const historicalData = [
-            { x: 1, y: 12000 }, // Month 1
-            { x: 2, y: 13500 }, // Month 2
-            { x: 3, y: 12800 }, // Month 3
-            { x: 4, y: 15400 }, // Month 4
-            { x: 5, y: 14900 }, // Month 5
-            { x: 6, y: 17200 }, // Month 6 (Current)
-        ];
-
-        // Train Model
-        const model = useMemo(() => new LinearRegression(historicalData), []);
-        const predictionDetails = model.getDetails();
-
-        // Forecast
-        const nextMonthPrediction = model.predict(7); // Predict Month 7
-        const yearEndPrediction = model.predict(12); // Predict Month 12
-        const trendDirection = predictionDetails.slope > 0 ? 'Growing 📈' : 'Declining 📉';
-        // ---------------------------
-
-        // Calculate dynamic values
-        const currentRevenue = stats.totalRevenue; // Use actual revenue from stats
-        const netProfit = currentRevenue - monthlyExpenses;
-        const profitMargin = currentRevenue > 0 ? ((netProfit / currentRevenue) * 100).toFixed(1) : "0";
-        const runway = '6 Months'; // Mock logic
+    // --- Invoices & GST Billing View (Real Database Invoices) ---
+    const InvoicesView = () => {
+        const filteredInvoices = invoices.filter(inv => {
+            if (invoiceFilter === 'ALL') return true;
+            return inv.status === invoiceFilter;
+        });
 
         return (
-            <div className="space-y-8">
-                <header>
-                    <h1 className="text-3xl font-bold text-white mb-2">Finance Hub</h1>
-                    <p className="text-gray-400">Monthly Business Calculator & Financial Planning.</p>
-                </header>
+            <div className="space-y-6">
+                <TopNavBar
+                    title="Invoices & GST Billing"
+                    subtitle="Create GST invoices, track client receivables, and record incoming payments."
+                />
 
-                {/* Calculator Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Inputs Card */}
-                    <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
-                        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                            <Activity size={20} className="text-indigo-400" /> Parameters
-                        </h3>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Est. Monthly Expenses</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                                    <input
-                                        type="number"
-                                        value={monthlyExpenses}
-                                        onChange={(e) => setMonthlyExpenses(parseFloat(e.target.value) || 0)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2 text-white outline-none focus:border-indigo-500 transition-colors"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Revenue Goal</label>
-                                <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                                    <input
-                                        type="number"
-                                        value={revenueGoal}
-                                        onChange={(e) => setRevenueGoal(parseFloat(e.target.value) || 0)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-4 py-2 text-white outline-none focus:border-indigo-500 transition-colors"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="p-4 bg-white/5 rounded-xl border border-white/5 mt-4">
-                            <div className="flex justify-between items-center text-sm mb-1">
-                                <span className="text-gray-400">Current Revenue</span>
-                                <span className="text-white font-medium">${currentRevenue.toLocaleString()}</span>
-                            </div>
-                            <div className="w-full bg-gray-700 h-2 rounded-full mt-2 overflow-hidden">
-                                <div
-                                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-full rounded-full transition-all duration-1000"
-                                    style={{ width: `${Math.min((currentRevenue / revenueGoal) * 100, 100)}%` }}
-                                ></div>
-                            </div>
-                            <div className="text-right text-xs text-indigo-300 mt-1">
-                                {((currentRevenue / revenueGoal) * 100).toFixed(0)}% of Goal
-                            </div>
-                        </div>
+                <div className="flex items-center justify-between border-b border-white/[0.08] pb-3 flex-wrap gap-4">
+                    <div className="flex items-center gap-2 overflow-x-auto">
+                        {['ALL', 'DRAFT', 'SENT', 'PAID', 'OVERDUE'].map((status) => (
+                            <button
+                                key={status}
+                                onClick={() => setInvoiceFilter(status)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                                    invoiceFilter === status
+                                        ? 'bg-indigo-600 text-white shadow'
+                                        : 'text-gray-400 hover:text-white hover:bg-white/[0.05]'
+                                }`}
+                            >
+                                {status}
+                            </button>
+                        ))}
                     </div>
 
-                    {/* Results Card */}
-                    <div className="glass p-6 rounded-2xl border border-white/5 lg:col-span-2 flex flex-col justify-center relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none"></div>
-
-                        <div className="grid grid-cols-2 gap-8 relative z-10">
-                            <div>
-                                <p className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">Net Profit</p>
-                                <h2 className={`text-5xl font-bold tracking-tight ${netProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                    ${netProfit.toLocaleString()}
-                                </h2>
-                                <p className="text-sm text-gray-500 mt-2">Revenue - Expenses</p>
-                            </div>
-
-                            <div>
-                                <p className="text-gray-400 text-sm font-medium uppercase tracking-wider mb-1">Profit Margin</p>
-                                <h2 className="text-5xl font-bold tracking-tight text-white">
-                                    {profitMargin}%
-                                </h2>
-                                <p className="text-sm text-gray-500 mt-2">Health Score: {parseFloat(profitMargin) > 20 ? 'Healthy 🚀' : 'Needs Optimization ⚠️'}</p>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="text-2xl font-bold text-emerald-300">${(netProfit * 12).toLocaleString()}</div>
-                            <div className="text-xs text-gray-400">Est. Annual Profit</div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Predictive Analytics Card (New) */}
-                <div className="glass p-6 rounded-2xl border border-white/5 space-y-6">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                        <Target size={20} className="text-pink-400" /> Revenue Forecast (AI)
-                    </h3>
-
-                    <div className="space-y-4">
-                        <div className="p-4 bg-white/5 rounded-xl border border-white/5 relative overflow-hidden group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                            <div className="text-xs text-gray-400 mb-1">Next Month Projection</div>
-                            <div className="text-2xl font-bold text-white relative z-10">
-                                ${nextMonthPrediction.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            </div>
-                            <div className="text-xs text-emerald-400 mt-1 flex items-center gap-1">
-                                Based on {trendDirection} trend
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                                <div className="text-xs text-gray-400 mb-1">Year End Forecast</div>
-                                <div className="text-lg font-bold text-gray-200">
-                                    ${yearEndPrediction.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                </div>
-                            </div>
-                            <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                                <div className="text-xs text-gray-400 mb-1">Confidence Score</div>
-                                <div className="text-lg font-bold text-gray-200">
-                                    {(predictionDetails.rSquared * 100).toFixed(1)}%
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="text-[10px] text-gray-500 font-mono mt-2 text-center">
-                            Algorithm: Linear Regression (OLS)
-                            <br />
-                            Model: {predictionDetails.formula}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        );
-    };
-
-    const ContactsView = () => (
-        <div className="h-full flex flex-col bg-[#030712] -m-8 p-8 font-sans">
-            {/* Top Header matching screenshot */}
-            <header className="flex justify-between items-center mb-10">
-                <div className="flex items-center gap-2">
-                    <div className="bg-indigo-600 p-1.5 rounded-lg">
-                        <LayoutGrid size={18} className="text-white" />
-                    </div>
-                    <span className="font-bold text-white text-lg tracking-tight">agnecyos</span>
-                </div>
-                <div className="flex items-center gap-4">
-                    <button className="p-2 bg-[#1f2937] hover:bg-gray-700 text-gray-400 hover:text-white rounded-full transition-colors relative">
-                        <div className="absolute top-2 right-2.5 w-2 h-2 bg-indigo-500 rounded-full border-2 border-[#1f2937]"></div>
-                        {/* Using a Bell icon if available, otherwise generic */}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
-                    </button>
-                    <div className="flex items-center gap-3 border-l border-gray-800 pl-4">
-                        <div className="text-right hidden md:block">
-                            <div className="text-sm font-bold text-white">{(user?.email || 'User').split('@')[0]}</div>
-                            <div className="text-[10px] text-gray-500 font-medium">Admin</div>
-                        </div>
-                        <div className="w-10 h-10 rounded-full bg-[#fce7f3] border-2 border-[#1f2937] overflow-hidden">
-                            {/* Mock Avatar Image or Initials */}
-                            <div className="w-full h-full flex items-center justify-center text-pink-600 font-bold">
-                                {(user?.email || 'U').charAt(0).toUpperCase()}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* Page Title Section */}
-            <div className="flex justify-between items-end mb-8">
-                <div>
-                    <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Contacts Directory</h1>
-                    <p className="text-gray-500">Manage your clients and professional relationships across all accounts.</p>
-                </div>
-                <button
-                    onClick={() => setModalType('contact')}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
-                >
-                    <Plus size={18} /> Add Contact
-                </button>
-            </div>
-
-            {/* Filter Bar */}
-            <div className="bg-[#0f111a] p-2 rounded-2xl border border-gray-800 flex items-center justify-between mb-8">
-                <div className="relative flex-1 max-w-xl">
-                    <Search className="absolute left-4 top-3.5 text-gray-500" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search by name, email or company..."
-                        className="w-full bg-transparent text-gray-300 text-sm placeholder-gray-600 pl-12 pr-4 py-3 focus:outline-none"
-                    />
-                </div>
-                <div className="flex items-center gap-2 pr-2">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-[#1f2937] hover:bg-gray-700 text-gray-300 rounded-xl text-sm font-medium transition-colors border border-gray-700">
-                        <Briefcase size={16} /> Filter
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 bg-[#1f2937] hover:bg-gray-700 text-gray-300 rounded-xl text-sm font-medium transition-colors border border-gray-700">
-                        <FileText size={16} /> Export
-                    </button>
-                </div>
-            </div>
-
-            {/* Contacts Table */}
-            <div className="flex-1 bg-[#0f111a] rounded-2xl border border-gray-800 overflow-hidden flex flex-col">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-[#161b2e] text-gray-400 text-[11px] uppercase tracking-wider font-bold">
-                            <tr>
-                                <th className="p-5 pl-6">Name</th>
-                                <th className="p-5">Role</th>
-                                <th className="p-5">Company</th>
-                                <th className="p-5">Email</th>
-                                <th className="p-5">Type</th>
-                                <th className="p-5 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-800">
-                            {contacts.map((contact, idx) => {
-                                // Mock random meta data for display
-                                const metaTime = ['Joined 2 days ago', 'Active now', 'Contacted June 12', 'Pending reply', 'Newly assigned'][idx % 5];
-                                const typeColor = contact.type === 'Client' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                    contact.type === 'Partner' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                        'bg-blue-500/10 text-blue-400 border-blue-500/20';
-
-                                return (
-                                    <tr key={contact.id} className="hover:bg-white/5 transition-colors group">
-                                        <td className="p-4 pl-6">
-                                            <div className="flex items-center gap-4">
-                                                <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-lg ${['bg-indigo-600', 'bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-pink-600'][idx % 5]
-                                                    }`}>
-                                                    {contact.name.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <div className="font-bold text-white text-sm">{contact.name}</div>
-                                                    <div className="text-[11px] text-gray-500 font-medium">{metaTime}</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 text-sm text-gray-300 font-medium">{contact.role || 'N/A'}</td>
-                                        <td className="p-4 text-sm text-gray-300 font-medium">{contact.company || 'N/A'}</td>
-                                        <td className="p-4 text-sm text-gray-400">{contact.email}</td>
-                                        <td className="p-4">
-                                            <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase font-bold border ${typeColor}`}>
-                                                {contact.type || 'LEAD'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-right pr-6">
-                                            <button className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                                                <MoreHorizontal size={18} />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            {contacts.length === 0 && (
-                                <tr>
-                                    <td colSpan={6} className="p-12 text-center">
-                                        <div className="text-gray-500 text-sm mb-2">No contacts found</div>
-                                        <button onClick={() => setModalType('contact')} className="text-indigo-400 text-sm hover:text-indigo-300 font-medium">Add your first contact</button>
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Pagination Footer */}
-                <div className="mt-auto p-4 border-t border-gray-800 flex justify-between items-center bg-[#0f111a]">
-                    <div className="text-xs text-gray-500 font-medium ml-2">
-                        Showing <span className="text-white font-bold">1-{contacts.length}</span> of <span className="text-white font-bold">{contacts.length}</span> contacts
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1f2937] text-gray-400 hover:bg-gray-700 hover:text-white transition-colors">
-                            <ChevronRight size={14} className="rotate-180" />
-                        </button>
-                        <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-indigo-600 text-white shadow-lg shadow-indigo-500/20 font-bold text-xs">1</button>
-                        <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#1f2937] text-gray-400 text-xs font-medium transition-colors">2</button>
-                        <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#1f2937] text-gray-400 text-xs font-medium transition-colors">3</button>
-                        <span className="text-gray-600 text-xs">...</span>
-                        <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#1f2937] text-gray-400 text-xs font-medium transition-colors">25</button>
-                        <button className="w-8 h-8 flex items-center justify-center rounded-lg bg-[#1f2937] text-gray-400 hover:bg-gray-700 hover:text-white transition-colors">
-                            <ChevronRight size={14} />
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-
-    const TeamView = () => (
-        <div className="h-full flex flex-col bg-[#030712] -m-8 p-8 font-sans">
-            {/* Header */}
-            <header className="flex justify-between items-center mb-10">
-                <div className="flex items-center gap-2">
-                    <div className="bg-indigo-600 p-1.5 rounded-lg">
-                        <Zap size={18} className="text-white bg-transparent" fill="currentColor" />
-                    </div>
-                    <div>
-                        <h1 className="text-xl font-bold text-white tracking-tight leading-none">agnecyos</h1>
-                        <span className="text-[10px] text-gray-500 font-medium tracking-wider uppercase">Internal Management</span>
-                    </div>
-                </div>
-
-                {/* Right Side Header Controls */}
-                <div className="flex items-center gap-3">
-                    <div className="text-right hidden md:block mr-4">
-                        <div className="text-sm font-bold text-white">James Wilson</div>
-                        <div className="text-[10px] text-gray-500 font-medium">Admin Account</div>
-                    </div>
-
-                    <div className="w-10 h-10 rounded-full bg-[#fce7f3] border-2 border-[#1f2937] flex items-center justify-center text-pink-600 font-bold overflow-hidden">
-                        J
-                    </div>
-                </div>
-            </header>
-
-            <div className="flex justify-between items-end mb-8">
-                <div>
-                    <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Team Directory</h1>
-                    <p className="text-gray-500">Managing {team.length || 24} team members across {projects.length || 8} active projects.</p>
-                </div>
-                <div className="flex gap-4">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-2.5 text-gray-500" size={18} />
-                        <input className="bg-[#0f111a] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-500 w-64 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Search members..." />
-                    </div>
                     <button
-                        onClick={() => setModalType('team')}
-                        className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20 flex items-center gap-2"
+                        onClick={() => {
+                            if (projects.length === 0) {
+                                alert('Please create at least one Project first to generate an invoice.');
+                                return;
+                            }
+                            setModalType('invoice');
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow"
                     >
-                        <Plus size={18} /> Add Member
+                        <Plus size={14} /> Create GST Invoice
                     </button>
                 </div>
-            </div>
 
-            {/* Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                {[
-                    { label: 'TOTAL STAFF', value: '24', icon: Users, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                    { label: 'ACTIVE NOW', value: '18', icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                    { label: 'AVG. RATING', value: '4.85', icon: Star, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                    { label: 'OPEN ROLES', value: '2', icon: FileText, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-                ].map((stat, i) => (
-                    <div key={i} className="bg-[#0f111a] border border-gray-800 p-5 rounded-2xl flex items-center gap-4 hover:border-gray-700 transition-all cursor-default">
-                        <div className={`w-12 h-12 rounded-xl ${stat.bg} ${stat.color} flex items-center justify-center`}>
-                            <stat.icon size={24} />
-                        </div>
-                        <div>
-                            <div className="text-[10px] text-gray-500 font-bold tracking-widest uppercase mb-1">{stat.label}</div>
-                            <div className="text-2xl font-bold text-white">{stat.value}</div>
-                        </div>
+                {invoices.length === 0 ? (
+                    <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
+                        <FileText size={36} className="text-indigo-400 mx-auto mb-3" />
+                        <h3 className="text-base font-bold text-white mb-1">No invoices found</h3>
+                        <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
+                            Generate your first GST invoice for any active project.
+                        </p>
+                        <button
+                            onClick={() => {
+                                if (projects.length === 0) {
+                                    alert('Please create a project first.');
+                                    return;
+                                }
+                                setModalType('invoice');
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
+                        >
+                            <Plus size={16} /> Create Invoice
+                        </button>
                     </div>
-                ))}
-            </div>
+                ) : (
+                    <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                                <thead className="bg-white/[0.02] text-gray-400 uppercase tracking-wider font-bold border-b border-white/[0.06]">
+                                    <tr>
+                                        <th className="p-4 pl-6">Invoice ID</th>
+                                        <th className="p-4">Project</th>
+                                        <th className="p-4">Client</th>
+                                        <th className="p-4">Base Amount</th>
+                                        <th className="p-4">Total (GST 18%)</th>
+                                        <th className="p-4">Due Date</th>
+                                        <th className="p-4">Status</th>
+                                        <th className="p-4 text-right pr-6">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/[0.04]">
+                                    {filteredInvoices.map((inv) => {
+                                        const baseAmt = parseFloat(inv.amount.toString()) || 0;
+                                        const totalWithGST = Math.round(baseAmt * 1.18);
 
-            {/* Team Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {team.map((member, idx) => (
-                    <div key={member.id} className="bg-[#0f111a] p-8 rounded-3xl border border-gray-800 text-center relative group hover:border-indigo-500/30 hover:-translate-y-1 transition-all">
-                        <div className="w-24 h-24 rounded-full p-1 border-2 border-indigo-500/20 mx-auto mb-5 relative group-hover:border-indigo-500 transition-colors">
-                            <div className="w-full h-full rounded-full bg-gradient-to-b from-gray-700 to-gray-800 overflow-hidden flex items-center justify-center">
-                                {/* If we had real images we'd use 'next/image' here. For now initials. */}
-                                <span className="text-3xl font-bold text-white/20">{member.name.charAt(0)}</span>
-                            </div>
-                            <div className={`absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-[#0f111a] ${idx % 3 === 0 ? 'bg-emerald-500' : 'bg-gray-500'}`}></div>
+                                        const statusBadge = {
+                                            PAID: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                                            SENT: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                                            OVERDUE: 'bg-red-500/10 text-red-400 border-red-500/20',
+                                            DRAFT: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+                                        }[inv.status] || 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+
+                                        return (
+                                            <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
+                                                <td className="p-4 pl-6 font-mono font-bold text-white">{inv.id.substring(0, 12)}</td>
+                                                <td className="p-4 text-gray-200 font-medium">{inv.project?.name || 'Project'}</td>
+                                                <td className="p-4 text-gray-400">{inv.project?.clientEmail || 'N/A'}</td>
+                                                <td className="p-4 font-mono text-gray-300">{formatINR(baseAmt)}</td>
+                                                <td className="p-4 font-mono font-bold text-white">{formatINR(totalWithGST)}</td>
+                                                <td className="p-4 text-gray-400">{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A'}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border uppercase ${statusBadge}`}>
+                                                        {inv.status}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-right pr-6">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {inv.status !== 'PAID' && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedInvoice(inv);
+                                                                    setFormData({ amount: totalWithGST });
+                                                                    setModalType('payment');
+                                                                }}
+                                                                className="px-2.5 py-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600 hover:text-white font-bold text-[10px] transition-colors"
+                                                            >
+                                                                Record Payment
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            onClick={() => handleDeleteInvoice(inv.id)}
+                                                            className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                                                            title="Delete Invoice"
+                                                        >
+                                                            <Trash2 size={13} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
-
-                        <h3 className="text-xl font-bold text-white mb-1 group-hover:text-indigo-400 transition-colors">{member.name}</h3>
-                        <p className="text-indigo-400 font-medium text-sm mb-6 pb-6 border-b border-gray-800">{member.role}</p>
-
-                        <div className="flex justify-center gap-4 mb-8">
-                            <button className="p-2.5 bg-[#161b2e] text-gray-400 rounded-xl hover:bg-gray-700 hover:text-white transition-colors">
-                                <Mail size={16} />
-                            </button>
-                            <button className="p-2.5 bg-[#161b2e] text-gray-400 rounded-xl hover:bg-gray-700 hover:text-white transition-colors">
-                                <Phone size={16} />
-                            </button>
-                            <button className="p-2.5 bg-[#161b2e] text-gray-400 rounded-xl hover:bg-gray-700 hover:text-white transition-colors">
-                                {idx % 2 === 0 ? <LinkIcon size={16} /> : <Share2 size={16} />}
-                            </button>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4 border-t border-gray-800 pt-6">
-                            <div className="text-left pl-4 border-r border-gray-800">
-                                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">PROJECTS</div>
-                                <div className="text-lg font-bold text-white">{member.projectsCount} Total</div>
-                            </div>
-                            <div className="text-right pr-4">
-                                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">RATING</div>
-                                <div className="text-lg font-bold text-white flex items-center justify-end gap-1">
-                                    <Star size={14} className="text-amber-400 fill-amber-400" />
-                                    {parseFloat(member.rating).toFixed(1)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-
-                {/* Fallback if no team members */}
-                {team.length === 0 && (
-                    <div className="col-span-full py-20 text-center border border-dashed border-gray-800 rounded-3xl bg-[#0f111a]">
-                        <p className="text-gray-500">No team members found.</p>
                     </div>
                 )}
             </div>
-        </div>
-    );
+        );
+    };
 
-    const ProjectsView = () => (
-        <div className="space-y-6">
-            <header className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-3xl font-bold text-white mb-2">Projects</h1>
-                    <p className="text-gray-400">Manage your active work and deliverables.</p>
-                </div>
-                <button
-                    onClick={() => setModalType('project')}
-                    className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
-                >
-                    New Project
-                </button>
-            </header>
+    // --- Tasks View (Real Database Tasks) ---
+    const TasksView = () => {
+        return (
+            <div className="space-y-6">
+                <TopNavBar
+                    title="Tasks & Priorities"
+                    subtitle="Organize deliverables, assign team members, and track milestone due dates."
+                />
 
-            {projects.length === 0 ? (
-                <div className="text-center py-20 bg-white/5 rounded-2xl border border-dashed border-white/10">
-                    <h3 className="text-gray-300">No projects found</h3>
+                <div className="flex justify-between items-center bg-[#0a0f1d] p-4 rounded-2xl border border-white/[0.08]">
+                    <div className="text-xs text-gray-400">
+                        Total Tasks: <span className="font-bold text-white">{tasks.length}</span> •
+                        Completed: <span className="font-bold text-emerald-400">{tasks.filter(t => t.status === 'DONE').length}</span>
+                    </div>
+                    <button
+                        onClick={() => {
+                            if (projects.length === 0) {
+                                alert('Please create a project first before creating tasks.');
+                                return;
+                            }
+                            setModalType('task');
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow"
+                    >
+                        <Plus size={14} /> Add Task
+                    </button>
                 </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {projects.map((project) => {
-                        const projectValue = project.scopes?.[0]?.price || 0;
-                        return (
-                            <Link key={project.id} href={`/projects/${project.id}`}>
-                                <div className="glass-card p-6 rounded-2xl hover:bg-white/5 transition-all cursor-pointer block h-full group hover:-translate-y-1 border border-white/5 hover:border-indigo-500/30 relative overflow-hidden">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center text-white font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
-                                            {project.name.charAt(0)}
-                                        </div>
-                                        {projectValue > 0 && (
-                                            <div className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-gray-300">
-                                                ${parseFloat(projectValue.toString()).toLocaleString()}
+
+                {tasks.length === 0 ? (
+                    <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
+                        <CheckSquare size={36} className="text-indigo-400 mx-auto mb-3" />
+                        <h3 className="text-base font-bold text-white mb-1">No tasks created yet</h3>
+                        <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
+                            Create project tasks to track operational deliverables and priorities.
+                        </p>
+                        <button
+                            onClick={() => {
+                                if (projects.length === 0) {
+                                    alert('Please create a project first.');
+                                    return;
+                                }
+                                setModalType('task');
+                            }}
+                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
+                        >
+                            <Plus size={16} /> Create Task
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {tasks.map((task) => {
+                            const isDone = task.status === 'DONE';
+                            return (
+                                <div
+                                    key={task.id}
+                                    className="p-4 rounded-xl bg-[#0a0f1d] border border-white/[0.08] flex items-center justify-between gap-4 hover:border-white/[0.15] transition-all"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <button
+                                            onClick={() => handleToggleTaskStatus(task)}
+                                            className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                                                isDone
+                                                    ? 'bg-emerald-600 border-emerald-500 text-white'
+                                                    : 'border-gray-600 hover:border-indigo-400'
+                                            }`}
+                                        >
+                                            {isDone && <CheckCircle size={14} />}
+                                        </button>
+                                        <div>
+                                            <div className={`text-sm font-semibold ${isDone ? 'line-through text-gray-500' : 'text-white'}`}>
+                                                {task.title}
                                             </div>
-                                        )}
+                                            <div className="text-xs text-gray-400">
+                                                {task.project?.name || 'Project'} • Assigned: {task.assignee || 'Unassigned'}
+                                                {task.dueDate && ` • Due ${new Date(task.dueDate).toLocaleDateString()}`}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <h3 className="font-semibold text-xl text-white mb-1 group-hover:text-indigo-300 transition-colors truncate">{project.name}</h3>
-                                    <p className="text-sm text-gray-400 mb-6 truncate">{project.clientEmail || 'No client assigned'}</p>
 
-                                    <div className="flex justify-between items-center text-xs text-gray-500 border-t border-white/5 pt-4">
-                                        <span className="flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                                            isDone
+                                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                        }`}>
+                                            {task.status}
                                         </span>
-                                        <span>{new Date(project.updatedAt).toLocaleDateString()}</span>
+                                        <button
+                                            onClick={() => handleDeleteTask(task.id)}
+                                            className="text-gray-600 hover:text-red-400 p-1"
+                                            title="Delete Task"
+                                        >
+                                            <Trash2 size={13} />
+                                        </button>
                                     </div>
                                 </div>
-                            </Link>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
-    const SettingsView = () => (
-        <div className="max-w-2xl bg-[#0f111a] p-8 rounded-2xl border border-gray-800">
-            <h1 className="text-2xl font-bold text-white mb-6">Settings</h1>
-            <div className="space-y-6">
-                <div>
-                    <h3 className="text-lg font-medium text-white mb-2">Profile Information</h3>
-                    <p className="text-gray-400 text-sm mb-4">Update your account details and profile.</p>
-                    <div className="grid gap-4">
-                        <input className="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500" placeholder="Display Name" defaultValue={user?.email?.split('@')[0]} />
-                        <input className="w-full bg-[#1e293b] border border-gray-700 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500" placeholder="Email Address" defaultValue={user?.email} readOnly />
+    // --- Loading Skeleton View ---
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#030712] text-gray-100 flex">
+                <div className="w-72 bg-[#020617] border-r border-white/5 p-6 animate-pulse hidden md:block">
+                    <div className="h-8 bg-white/[0.06] rounded-xl w-3/4 mb-8"></div>
+                    <div className="space-y-3">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="h-10 bg-white/[0.04] rounded-xl w-full"></div>
+                        ))}
                     </div>
                 </div>
-                <div className="pt-6 border-t border-gray-800">
-                    <h3 className="text-lg font-medium text-white mb-2">Appearance</h3>
-                    <div className="flex items-center gap-4">
-                        <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium">Dark Mode</button>
-                        <button className="px-4 py-2 bg-gray-800 text-gray-400 rounded-lg text-sm font-medium hover:bg-gray-700">Light Mode</button>
+                <div className="flex-1 p-8 animate-pulse space-y-6">
+                    <div className="h-8 bg-white/[0.06] rounded-xl w-48 mb-8"></div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="h-32 bg-white/[0.04] rounded-2xl"></div>
+                        ))}
                     </div>
+                    <div className="h-64 bg-white/[0.04] rounded-2xl"></div>
                 </div>
             </div>
-            <div className="mt-8 pt-6 border-t border-gray-800 flex justify-end">
-                <button className="bg-white text-black px-6 py-2.5 rounded-xl font-bold hover:bg-gray-200">Save Changes</button>
-            </div>
-        </div>
-    );
+        );
+    }
 
     if (showLanding) {
         return <LandingPage />;
     }
 
     return (
-        <div className="min-h-screen flex text-gray-100 font-sans">
-            {/* Sidebar */}
+        <div className="min-h-screen flex text-gray-100 font-sans bg-[#030712]">
+            <CommandPalette />
+
             <Sidebar
                 user={user}
                 onSignOut={handleSignOut}
                 currentView={activeView}
                 onViewChange={setActiveView}
+                counts={{
+                    projects: projects.length,
+                    leads: leads.length,
+                    tasks: tasks.filter(t => t.status !== 'DONE').length,
+                    invoices: invoices.length,
+                    approvals: operationalPriorities.pendingApprovalsCount
+                }}
             />
 
-            {/* Main Content */}
-            <main className="flex-1 p-8 overflow-y-auto relative">
-                <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[120px] -z-10 pointer-events-none" />
-                <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-purple-600/5 rounded-full blur-[120px] -z-10 pointer-events-none" />
+            <main className="flex-1 p-6 md:p-10 overflow-y-auto relative">
+                <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[140px] -z-10 pointer-events-none" />
+                <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-purple-600/5 rounded-full blur-[140px] -z-10 pointer-events-none" />
 
-                {activeView === 'dashboard' && <DashboardView />}
-                {activeView === 'projects' && <ProjectsView />}
-                {activeView === 'finance' && <FinanceView />}
-                {activeView === 'leads' && <LeadsView />}
-                {activeView === 'contacts' && <ContactsView />}
-                {activeView === 'team' && <TeamView />}
-                {activeView === 'settings' && <SettingsView />}
-            </main>
+                {activeView === 'dashboard' && <DashboardOverview />}
 
-            {/* Dynamic Modal */}
-            {modalType && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="glass p-8 rounded-2xl w-full max-w-md border border-white/10 shadow-2xl relative">
-                        <h2 className="text-2xl font-bold text-white mb-6 capitalize">Add {modalType}</h2>
-                        {successMsg && (
-                            <div className="mb-4 p-3 bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 rounded-lg text-sm text-center font-medium animate-pulse">
-                                {successMsg}
+                {activeView === 'projects' && (
+                    <div className="space-y-6">
+                        <TopNavBar title="Projects" subtitle="Active client projects, scopes of work, and team deliverables." />
+                        {projects.length === 0 ? (
+                            <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
+                                <FolderPlus size={36} className="text-indigo-400 mx-auto mb-3" />
+                                <h3 className="text-base font-bold text-white mb-1">No projects found</h3>
+                                <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
+                                    Create a project to start organizing tasks, deliverables, and invoices.
+                                </p>
+                                <button
+                                    onClick={() => setModalType('project')}
+                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
+                                >
+                                    <Plus size={16} /> Create Project
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {projects.map((p) => (
+                                    <div key={p.id} className="bg-[#0a0f1d] hover:bg-[#111827] border border-white/[0.08] hover:border-indigo-500/40 p-6 rounded-2xl transition-all shadow-md group flex flex-col justify-between">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div className="w-12 h-12 rounded-xl bg-indigo-600/20 text-indigo-400 flex items-center justify-center font-bold text-lg">
+                                                    {p.name.charAt(0)}
+                                                </div>
+                                                <button
+                                                    onClick={() => handleDeleteProject(p.id)}
+                                                    className="text-gray-600 hover:text-red-400 p-1"
+                                                    title="Delete Project"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                            <Link href={`/projects/${p.id}`}>
+                                                <h3 className="font-bold text-lg text-white group-hover:text-indigo-300 transition-colors mb-1">{p.name}</h3>
+                                            </Link>
+                                            <p className="text-xs text-gray-400 mb-4">{p.clientEmail || 'No client assigned'}</p>
+                                        </div>
+                                        <div className="pt-3 border-t border-white/[0.06] flex justify-between text-xs text-gray-400">
+                                            <span>{p.tasks?.length || 0} Tasks</span>
+                                            <span>{new Date(p.updatedAt).toLocaleDateString()}</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                    </div>
+                )}
 
-                            {/* PROJECT FIELDS */}
+                {activeView === 'tasks' && <TasksView />}
+
+                {activeView === 'calendar' && (
+                    <div className="space-y-6">
+                        <TopNavBar title="Deadlines & Calendar" subtitle="Milestone delivery dates and client approval checkpoints." />
+                        <div className="p-8 bg-[#0a0f1d] rounded-2xl border border-white/[0.08]">
+                            <h3 className="font-bold text-white text-base mb-4 flex items-center gap-2">
+                                <Calendar size={18} className="text-indigo-400" /> Upcoming Task Due Dates
+                            </h3>
+                            {tasks.filter(t => t.dueDate).length === 0 ? (
+                                <div className="text-xs text-gray-500 text-center py-8">
+                                    No task due dates scheduled. Set due dates on tasks to populate your timeline.
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {tasks.filter(t => t.dueDate).map(t => (
+                                        <div key={t.id} className="p-3 bg-white/[0.02] border border-white/[0.04] rounded-xl flex items-center justify-between text-xs">
+                                            <span className="font-medium text-white">{t.title}</span>
+                                            <span className="font-mono text-gray-400">{new Date(t.dueDate!).toLocaleDateString()}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {activeView === 'leads' && <LeadsView />}
+
+                {activeView === 'contacts' && (
+                    <div className="space-y-6">
+                        <TopNavBar title="Clients Directory" subtitle="All professional accounts, points of contact, and client portal links." />
+                        <div className="flex justify-between items-center bg-[#0a0f1d] p-4 rounded-2xl border border-white/[0.08]">
+                            <span className="text-xs text-gray-400">Total Clients: <strong className="text-white">{contacts.length}</strong></span>
+                            <button
+                                onClick={() => setModalType('contact')}
+                                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow"
+                            >
+                                <Plus size={14} /> Add Client
+                            </button>
+                        </div>
+
+                        {contacts.length === 0 ? (
+                            <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
+                                <Users size={36} className="text-indigo-400 mx-auto mb-3" />
+                                <h3 className="text-base font-bold text-white mb-1">No clients found</h3>
+                                <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
+                                    Add your client contacts or convert won opportunities from your CRM.
+                                </p>
+                                <button
+                                    onClick={() => setModalType('contact')}
+                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
+                                >
+                                    <Plus size={16} /> Add Client
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl overflow-hidden">
+                                <table className="w-full text-left text-xs">
+                                    <thead className="bg-white/[0.02] text-gray-400 uppercase font-bold border-b border-white/[0.06]">
+                                        <tr>
+                                            <th className="p-4 pl-6">Client Name</th>
+                                            <th className="p-4">Company</th>
+                                            <th className="p-4">Email</th>
+                                            <th className="p-4">Role</th>
+                                            <th className="p-4 text-right pr-6">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/[0.04]">
+                                        {contacts.map((c) => (
+                                            <tr key={c.id} className="hover:bg-white/[0.02]">
+                                                <td className="p-4 pl-6 font-bold text-white">{c.name}</td>
+                                                <td className="p-4 text-gray-300">{c.company || 'N/A'}</td>
+                                                <td className="p-4 text-gray-400">{c.email}</td>
+                                                <td className="p-4 text-gray-400">{c.role || 'Client'}</td>
+                                                <td className="p-4 text-right pr-6">
+                                                    <button
+                                                        onClick={() => handleDeleteContact(c.id)}
+                                                        className="text-gray-500 hover:text-red-400 p-1"
+                                                        title="Delete Contact"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeView === 'finance' && <InvoicesView />}
+
+                {activeView === 'payments' && (
+                    <div className="space-y-6">
+                        <TopNavBar title="Payments Ledger" subtitle="Completed and reconciled client payments." />
+                        <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                            <h3 className="font-bold text-white text-base mb-4 flex items-center gap-2">
+                                <CreditCard size={18} className="text-emerald-400" /> Recorded Payment History
+                            </h3>
+                            {invoices.filter(i => i.status === 'PAID').length === 0 ? (
+                                <div className="text-center py-8 text-gray-500 text-xs">
+                                    No completed payments recorded yet. Click &apos;Record Payment&apos; on any invoice to record payment.
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {invoices.filter(i => i.status === 'PAID').map(inv => (
+                                        <div key={inv.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between text-xs">
+                                            <div>
+                                                <span className="font-bold text-white">{inv.project?.name || 'Invoice Payment'}</span>
+                                                <span className="text-gray-500 ml-2 font-mono">({inv.id.substring(0, 8)})</span>
+                                            </div>
+                                            <span className="font-mono font-bold text-emerald-400">{formatINR(inv.amount)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {activeView === 'team' && (
+                    <div className="space-y-6">
+                        <TopNavBar title="Team Directory" subtitle="Staff members, assignees, and roles." />
+                        <div className="flex justify-between items-center bg-[#0a0f1d] p-4 rounded-2xl border border-white/[0.08]">
+                            <span className="text-xs text-gray-400">Total Staff: <strong className="text-white">{team.length}</strong></span>
+                            <button
+                                onClick={() => setModalType('team')}
+                                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow"
+                            >
+                                <Plus size={14} /> Add Team Member
+                            </button>
+                        </div>
+                        {team.length === 0 ? (
+                            <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
+                                <UserCheck size={36} className="text-indigo-400 mx-auto mb-3" />
+                                <h3 className="text-base font-bold text-white mb-1">No team members added</h3>
+                                <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
+                                    Add your team members to assign tasks and manage agency workload.
+                                </p>
+                                <button
+                                    onClick={() => setModalType('team')}
+                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
+                                >
+                                    <Plus size={16} /> Add Member
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {team.map(m => (
+                                    <div key={m.id} className="p-6 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] text-center">
+                                        <div className="w-14 h-14 rounded-full bg-indigo-600/20 text-indigo-300 font-bold text-lg flex items-center justify-center mx-auto mb-3 border border-indigo-500/30">
+                                            {m.name.charAt(0)}
+                                        </div>
+                                        <h4 className="font-bold text-white text-base">{m.name}</h4>
+                                        <p className="text-xs text-indigo-400 mb-2">{m.role}</p>
+                                        <p className="text-xs text-gray-400">{m.email}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {activeView === 'approvals' && (
+                    <div className="space-y-6">
+                        <TopNavBar title="Client Approvals" subtitle="Live audit log of client milestone sign-offs." />
+                        <div className="p-6 rounded-2xl bg-[#0a0f1d] border border-white/[0.08]">
+                            <div className="text-xs text-gray-400 text-center py-6">
+                                Approvals are updated in real-time when clients sign off on deliverables in their Client Portal.
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeView === 'settings' && (
+                    <div className="space-y-6 max-w-3xl">
+                        <TopNavBar title="Settings" subtitle="Agency branding, billing, and profile." />
+                        <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6 space-y-4">
+                            <div>
+                                <label className="text-xs text-gray-400 block mb-1">User Email</label>
+                                <input className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white" defaultValue={user?.email || ''} readOnly />
+                            </div>
+                            <div>
+                                <label className="text-xs text-gray-400 block mb-1">Subscription Plan</label>
+                                <input className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white" defaultValue={user?.plan || 'FREE'} readOnly />
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
+
+            {/* Dynamic Real Action Modals */}
+            {modalType && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-[#0a0f1d] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative animate-in fade-in zoom-in-95">
+                        <div className="flex justify-between items-center mb-5 pb-3 border-b border-white/[0.08]">
+                            <h3 className="text-base font-bold text-white capitalize">
+                                {modalType === 'payment' ? 'Record Client Payment' : `Add ${modalType}`}
+                            </h3>
+                            <button onClick={() => setModalType(null)} className="text-gray-400 hover:text-white">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={modalType === 'payment' ? handleRecordPayment : handleGenericSubmit} className="space-y-4">
                             {modalType === 'project' && (
                                 <>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Project Name</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Project Name *</label>
                                         <input
-                                            autoFocus
-                                            value={formData.name || ''}
                                             required
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('name', e.target.value)}
+                                            type="text"
+                                            placeholder="e.g. Website Redesign"
+                                            value={formData.name || ''}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                                         />
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Client Email</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Client Email</label>
                                         <input
-                                            value={formData.clientEmail || ''}
                                             type="email"
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('clientEmail', e.target.value)}
+                                            placeholder="client@company.com"
+                                            value={formData.clientEmail || ''}
+                                            onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                                         />
                                     </div>
                                 </>
                             )}
 
-                            {/* LEAD FIELDS */}
                             {modalType === 'lead' && (
                                 <>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Lead Name</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Contact Name *</label>
                                         <input
-                                            autoFocus
-                                            value={formData.name || ''}
                                             required
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('name', e.target.value)}
+                                            type="text"
+                                            placeholder="Contact Name"
+                                            value={formData.name || ''}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                                         />
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Company</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Company</label>
                                         <input
+                                            type="text"
+                                            placeholder="Company Name"
                                             value={formData.company || ''}
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('company', e.target.value)}
+                                            onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                                         />
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Estimated Value ($)</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Email</label>
                                         <input
-                                            value={formData.value || ''}
-                                            type="number"
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('value', e.target.value)}
+                                            type="email"
+                                            placeholder="contact@company.com"
+                                            value={formData.email || ''}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                                         />
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Status</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Estimated Value (₹)</label>
+                                        <input
+                                            type="number"
+                                            placeholder="150000"
+                                            value={formData.value || ''}
+                                            onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Pipeline Stage</label>
                                         <select
                                             value={formData.status || 'NEW'}
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('status', e.target.value)}
+                                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                            className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
                                         >
-                                            <option value="NEW" className="bg-gray-900">New</option>
-                                            <option value="DISCUSSION" className="bg-gray-900">Discussion</option>
-                                            <option value="PROPOSAL" className="bg-gray-900">Proposal</option>
+                                            <option value="NEW">NEW</option>
+                                            <option value="DISCUSSION">DISCUSSION</option>
+                                            <option value="PROPOSAL">PROPOSAL</option>
+                                            <option value="WON">WON</option>
+                                            <option value="LOST">LOST</option>
                                         </select>
                                     </div>
                                 </>
                             )}
 
-                            {/* CONTACT FIELDS */}
                             {modalType === 'contact' && (
                                 <>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Full Name</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Client Name *</label>
                                         <input
-                                            autoFocus
-                                            value={formData.name || ''}
                                             required
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('name', e.target.value)}
+                                            type="text"
+                                            placeholder="Client Name"
+                                            value={formData.name || ''}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
                                         />
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Email Address</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Email *</label>
                                         <input
-                                            value={formData.email || ''}
                                             required
                                             type="email"
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('email', e.target.value)}
+                                            placeholder="name@company.com"
+                                            value={formData.email || ''}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
                                         />
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Role / Job Title</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Company</label>
                                         <input
-                                            value={formData.role || ''}
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('role', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Company</label>
-                                        <input
+                                            type="text"
+                                            placeholder="Company Name"
                                             value={formData.company || ''}
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('company', e.target.value)}
+                                            onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Role / Designation</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Marketing Director"
+                                            value={formData.role || ''}
+                                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
                                         />
                                     </div>
                                 </>
                             )}
 
-                            {/* TEAM FIELDS */}
+                            {modalType === 'task' && (
+                                <>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Project *</label>
+                                        <select
+                                            required
+                                            value={formData.projectId || ''}
+                                            onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                                            className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                                        >
+                                            <option value="">Select Project</option>
+                                            {projects.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Task Title *</label>
+                                        <input
+                                            required
+                                            type="text"
+                                            placeholder="Task title"
+                                            value={formData.title || ''}
+                                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Assignee</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Assignee name"
+                                            value={formData.assignee || ''}
+                                            onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Due Date</label>
+                                        <input
+                                            type="date"
+                                            value={formData.dueDate || ''}
+                                            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                            className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
+                            {modalType === 'invoice' && (
+                                <>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Project *</label>
+                                        <select
+                                            required
+                                            value={formData.projectId || ''}
+                                            onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                                            className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                                        >
+                                            <option value="">Select Project</option>
+                                            {projects.map(p => (
+                                                <option key={p.id} value={p.id}>{p.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Base Amount (₹) *</label>
+                                        <input
+                                            required
+                                            type="number"
+                                            placeholder="50000"
+                                            value={formData.amount || ''}
+                                            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                        />
+                                        <span className="text-[10px] text-gray-500 mt-1 block">
+                                            18% GST (CGST 9% + SGST 9%) will be calculated on tax invoice.
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Due Date</label>
+                                        <input
+                                            type="date"
+                                            value={formData.dueDate || ''}
+                                            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                            className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                                        />
+                                    </div>
+                                </>
+                            )}
+
                             {modalType === 'team' && (
                                 <>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Name</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Member Name *</label>
                                         <input
-                                            autoFocus
-                                            value={formData.name || ''}
                                             required
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('name', e.target.value)}
+                                            type="text"
+                                            placeholder="Member Name"
+                                            value={formData.name || ''}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
                                         />
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Email</label>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Role *</label>
                                         <input
-                                            value={formData.email || ''}
+                                            required
+                                            type="text"
+                                            placeholder="e.g. Senior Designer"
+                                            value={formData.role || ''}
+                                            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Email *</label>
+                                        <input
                                             required
                                             type="email"
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('email', e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <label className="text-sm text-gray-300">Role</label>
-                                        <input
-                                            value={formData.role || ''}
-                                            required
-                                            className="w-full bg-white/5 border border-white/10 p-2 rounded text-white outline-none focus:border-indigo-500 transition-colors"
-                                            onChange={e => handleInputChange('role', e.target.value)}
+                                            placeholder="member@agency.com"
+                                            value={formData.email || ''}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
                                         />
                                     </div>
                                 </>
                             )}
 
-                            <div className="flex justify-end gap-3 mt-8">
-                                <button type="button" onClick={() => { setModalType(null); setFormData({}); }} className="px-4 py-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">Cancel</button>
-                                <button type="submit" className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium shadow-lg shadow-indigo-500/20">Save</button>
+                            {modalType === 'payment' && (
+                                <>
+                                    <div className="p-3 bg-white/[0.03] rounded-xl border border-white/[0.06] text-xs">
+                                        <div className="text-gray-400">Invoice: <span className="text-white font-mono font-bold">{selectedInvoice?.id?.substring(0, 12)}</span></div>
+                                        <div className="text-gray-400 mt-1">Amount Due: <span className="text-emerald-400 font-mono font-bold">{formatINR(selectedInvoice?.amount || 0)}</span></div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Payment Method</label>
+                                        <select
+                                            value={formData.method || 'UPI'}
+                                            onChange={(e) => setFormData({ ...formData, method: e.target.value })}
+                                            className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                                        >
+                                            <option value="UPI">UPI (Google Pay / PhonePe / Paytm)</option>
+                                            <option value="NEFT">Bank Transfer (NEFT / RTGS / IMPS)</option>
+                                            <option value="STRIPE">Credit / Debit Card</option>
+                                            <option value="CASH">Cash / Cheque</option>
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="pt-4 flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setModalType(null)}
+                                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submitting}
+                                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 disabled:opacity-50"
+                                >
+                                    {submitting ? 'Saving...' : 'Save'}
+                                </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
-            {/* Onboarding Tour */}
-            <OnboardingTour userId={user?.id} />
         </div>
     );
 }

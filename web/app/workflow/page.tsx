@@ -48,10 +48,10 @@ export default function WorkflowPage() {
             <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4">
                 <div className="glass max-w-7xl w-full flex items-center justify-between px-8 py-4 rounded-full">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                            <Layers size={20} className="text-white" />
-                        </div>
-                        <Link href="/" className="text-white text-xl font-bold tracking-tight">agnecyos</Link>
+                        <Link href="/" className="flex items-center gap-3">
+                            <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                            <span className="text-white text-xl font-bold tracking-tight">agnecyos</span>
+                        </Link>
                     </div>
                     <div className="hidden md:flex items-center gap-8">
                         <Link href="/workflow" className="text-white text-sm font-medium transition-colors">Workflow</Link>
@@ -273,9 +273,7 @@ export default function WorkflowPage() {
             <footer className="border-t border-slate-200 dark:border-slate-800 py-12">
                 <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
                     <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[#5048e5]/20 rounded-lg flex items-center justify-center text-[#5048e5]">
-                            <Layers size={18} />
-                        </div>
+                        <img src="/logo.png" alt="agnecyos" className="h-8 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
                         <span className="font-bold text-slate-800 dark:text-white">agnecyos</span>
                     </div>
                     <div className="flex gap-8 text-sm text-slate-500">

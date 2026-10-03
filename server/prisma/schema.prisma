@@ -7,6 +7,154 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String
+  role               Role      @default(TEAM_MEMBER)
+  plan               Plan      @default(FREE)
+  trialEndsAt        DateTime?
+  stripeCustomerId   String?
+  subscriptionStatus String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  contacts           Contact[]
+  leads              Lead[]
+  projects           Project[]
+}
+
+model Project {
+  id                String        @id @default(uuid())
+  name              String
+  clientEmail       String?
+  clientAccessParam String        @unique @default(uuid())
+  userId            String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  status            ProjectStatus @default(ACTIVE)
+  deliverables      Deliverable[]
+  invoices          Invoice[]
+  user              User          @relation(fields: [userId], references: [id])
+  scopes            Scope[]
+  tasks             Task[]
+}
+
+model Scope {
+  id        String   @id @default(uuid())
+  projectId String
+  version   Int      @default(1)
+  content   String
+  price     Decimal  @default(0.00) @db.Decimal(10, 2)
+  isLocked  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id])
+}
+
+model Deliverable {
+  id        String             @id @default(uuid())
+  projectId String
+  version   Int
+  fileUrl   String
+  notes     String?
+  createdAt DateTime           @default(now())
+  approvals ApprovalAuditLog[]
+  project   Project            @relation(fields: [projectId], references: [id])
+}
+
+model ApprovalAuditLog {
+  id            String      @id @default(uuid())
+  deliverableId String
+  action        String
+  comments      String?
+  performedBy   String      @default("CLIENT")
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime    @default(now())
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id])
+}
+
+model Invoice {
+  id                String        @id @default(uuid())
+  projectId         String
+  amount            Decimal
+  status            InvoiceStatus @default(DRAFT)
+  stripePaymentLink String?
+  dueDate           DateTime?
+  paidAt            DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  project           Project       @relation(fields: [projectId], references: [id])
+  payments          Payment[]
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  amount        Decimal
+  transactionId String?
+  status        String
+  createdAt     DateTime @default(now())
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+}
+
+model Lead {
+  id        String     @id @default(uuid())
+  name      String
+  company   String?
+  email     String?
+  value     Decimal    @default(0.00) @db.Decimal(10, 2)
+  status    LeadStatus @default(NEW)
+  ownerId   String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  owner     User       @relation(fields: [ownerId], references: [id])
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  name      String
+  role      String?
+  company   String?
+  email     String
+  type      String   @default("CLIENT")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model TeamMember {
+  id            String   @id @default(uuid())
+  name          String
+  role          String
+  email         String   @unique
+  avatarUrl     String?
+  projectsCount Int      @default(0)
+  rating        Decimal  @default(5.0) @db.Decimal(2, 1)
+  createdAt     DateTime @default(now())
+}
+
+model Task {
+  id        String    @id @default(uuid())
+  projectId String
+  title     String
+  status    String    @default("TODO")
+  assignee  String?
+  dueDate   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  subtasks  Subtask[]
+  project   Project   @relation(fields: [projectId], references: [id])
+}
+
+model Subtask {
+  id        String  @id @default(uuid())
+  taskId    String
+  title     String
+  completed Boolean @default(false)
+  task      Task    @relation(fields: [taskId], references: [id])
+}
+
 enum Role {
   OWNER
   TEAM_MEMBER
@@ -24,100 +172,10 @@ enum Plan {
   PRO
 }
 
-model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(TEAM_MEMBER)
-  plan         Plan      @default(FREE)
-  trialEndsAt  DateTime? // Default to 14 days from creation
-  stripeCustomerId String?
-  subscriptionStatus String? // ACTIVE, CANCELED, PAST_DUE
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  projects     Project[]
-  leads        Lead[]
-  contacts     Contact[]
-}
-
-model Project {
-  id                String        @id @default(uuid())
-  name              String
-  clientEmail       String?
-  clientAccessParam String        @unique @default(uuid()) // The token in the URL
-  userId            String
-  user              User          @relation(fields: [userId], references: [id])
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  scopes            Scope[]
-  deliverables      Deliverable[]
-  invoices          Invoice[]
-  tasks             Task[]
-  status            ProjectStatus @default(ACTIVE)
-}
-
 enum ProjectStatus {
   ACTIVE
   COMPLETED
   ARCHIVED
-}
-
-model Scope {
-  id        String   @id @default(uuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id])
-  version   Int      @default(1)
-  content   String   @db.Text
-  price     Decimal  @default(0.00) @db.Decimal(10, 2)
-  isLocked  Boolean  @default(false)
-  createdAt DateTime @default(now())
-}
-
-model Deliverable {
-  id        String             @id @default(uuid())
-  projectId String
-  project   Project            @relation(fields: [projectId], references: [id])
-  version   Int
-  fileUrl   String
-  notes     String?
-  createdAt DateTime           @default(now())
-  approvals ApprovalAuditLog[]
-}
-
-model ApprovalAuditLog {
-  id            String      @id @default(uuid())
-  deliverableId String
-  deliverable   Deliverable @relation(fields: [deliverableId], references: [id])
-  action        String // "APPROVE", "REQUEST_CHANGES"
-  comments      String?
-  performedBy   String      @default("CLIENT") // "CLIENT" or User ID?
-  ipAddress     String?
-  userAgent     String?
-  createdAt     DateTime    @default(now())
-}
-
-model Invoice {
-  id            String        @id @default(uuid())
-  projectId     String
-  project       Project       @relation(fields: [projectId], references: [id])
-  amount        Decimal
-  status        InvoiceStatus @default(DRAFT)
-  stripePaymentLink String?
-  dueDate       DateTime?
-  paidAt        DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  payments      Payment[]
-}
-
-model Payment {
-  id            String   @id @default(uuid())
-  invoiceId     String
-  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
-  amount        Decimal
-  transactionId String?
-  status        String   // Stripe status
-  createdAt     DateTime @default(now())
 }
 
 enum LeadStatus {
@@ -128,60 +186,12 @@ enum LeadStatus {
   LOST
 }
 
-model Lead {
-  id             String     @id @default(uuid())
-  name           String
-  company        String?
-  email          String?
-  value          Decimal    @default(0.00) @db.Decimal(10, 2)
-  status         LeadStatus @default(NEW)
-  ownerId        String
-  owner          User       @relation(fields: [ownerId], references: [id])
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-}
-
-model Contact {
+model OtpVerification {
   id        String   @id @default(uuid())
-  name      String
-  role      String?
-  company   String?
   email     String
-  type      String   @default("CLIENT") // CLIENT, PARTNER, etc
+  otp       String
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-}
 
-model TeamMember {
-  id           String   @id @default(uuid())
-  name         String
-  role         String 
-  email        String   @unique
-  avatarUrl    String?
-  projectsCount Int     @default(0)
-  rating       Decimal  @default(5.0) @db.Decimal(2, 1)
-  createdAt    DateTime @default(now())
-}
-
-model Task {
-  id        String    @id @default(uuid())
-  projectId String
-  project   Project   @relation(fields: [projectId], references: [id])
-  title     String
-  status    String    @default("TODO") // TODO, IN_PROGRESS, DONE
-  assignee  String?
-  dueDate   DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  subtasks  Subtask[]
-}
-
-model Subtask {
-  id        String   @id @default(uuid())
-  taskId    String
-  task      Task     @relation(fields: [taskId], references: [id])
-  title     String
-  completed Boolean  @default(false)
+  @@index([email])
 }

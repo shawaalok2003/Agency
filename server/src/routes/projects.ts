@@ -53,12 +53,20 @@ export async function projectRoutes(server: FastifyInstance) {
             orderBy: { updatedAt: 'desc' },
             include: {
                 invoices: true,
+                tasks: {
+                    include: { subtasks: true },
+                    orderBy: { createdAt: 'desc' }
+                },
+                deliverables: {
+                    include: { approvals: true },
+                    orderBy: { createdAt: 'desc' }
+                },
                 scopes: {
                     orderBy: { version: 'desc' },
                     take: 1
                 },
                 _count: {
-                    select: { deliverables: true, invoices: true },
+                    select: { deliverables: true, invoices: true, tasks: true },
                 },
             },
         });
@@ -101,5 +109,25 @@ export async function projectRoutes(server: FastifyInstance) {
         });
 
         return project;
+    });
+
+    server.delete('/projects/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const userId = (request as any).user.id;
+
+        const project = await prisma.project.findFirst({ where: { id, userId } });
+        if (!project) return reply.code(404).send({ error: 'Project not found' });
+
+        // Clean up project relations
+        await prisma.subtask.deleteMany({ where: { task: { projectId: id } } });
+        await prisma.task.deleteMany({ where: { projectId: id } });
+        await prisma.approvalAuditLog.deleteMany({ where: { deliverable: { projectId: id } } });
+        await prisma.deliverable.deleteMany({ where: { projectId: id } });
+        await prisma.scope.deleteMany({ where: { projectId: id } });
+        await prisma.payment.deleteMany({ where: { invoice: { projectId: id } } });
+        await prisma.invoice.deleteMany({ where: { projectId: id } });
+        await prisma.project.delete({ where: { id } });
+
+        return { success: true };
     });
 }

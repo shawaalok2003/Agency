@@ -103,10 +103,11 @@ export default function ClientPortal() {
                 <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-2">
-                            <div className="bg-indigo-600 p-1.5 rounded-lg">
-                                <div className="w-4 h-4 rounded-sm bg-white/20" />
-                            </div>
-                            <span className="font-bold text-lg tracking-tight">agnecyos</span>
+                            <img
+                                src="/logo.png"
+                                alt="agnecyos"
+                                className="h-7 w-auto object-contain rounded border border-white/10 shadow-sm"
+                            />
                         </div>
                         <div className="h-4 w-px bg-white/10" />
                         <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -347,8 +348,9 @@ export default function ClientPortal() {
                 </div>
             </main>
             {/* Footer */}
-            <footer className="max-w-7xl mx-auto px-6 py-8 text-center text-gray-600 text-xs">
-                Powered by agnecyos
+            <footer className="max-w-7xl mx-auto px-6 py-8 flex flex-col items-center justify-center gap-2 text-gray-500 text-xs">
+                <img src="/logo.png" alt="agnecyos" className="h-6 w-auto object-contain opacity-80" />
+                <span>Powered by agnecyos</span>
             </footer>
         </div>
     );

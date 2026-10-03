@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../index';
 import { authenticate } from '../utils/auth';
+import { sendProcessUpdateEmail } from '../services/emailService';
 
 const createDeliverableSchema = z.object({
     projectId: z.string().uuid(),
@@ -82,7 +83,7 @@ export async function deliverableRoutes(server: FastifyInstance) {
 
         const deliverable = await prisma.deliverable.findUnique({
             where: { id },
-            include: { project: true }
+            include: { project: { include: { user: true } } }
         });
         if (!deliverable || deliverable.project.clientAccessParam !== clientToken) {
             return reply.code(403).send({ error: 'Unauthorized' });
@@ -104,7 +105,6 @@ export async function deliverableRoutes(server: FastifyInstance) {
             }
         });
 
-        // If approved, trigger invoice logic (stub)
         // If approved, trigger invoice logic
         if (action === 'APPROVE') {
             // Fetch the active scope amount
@@ -120,6 +120,29 @@ export async function deliverableRoutes(server: FastifyInstance) {
                     status: 'DRAFT',
                 }
             });
+        }
+
+        // Notify agency owner of client's approval or revision request
+        if (deliverable.project?.user?.email) {
+            sendProcessUpdateEmail({
+                to: deliverable.project.user.email,
+                category: 'APPROVAL',
+                title: action === 'APPROVE'
+                    ? `✅ Client Approved Deliverable v${deliverable.version}`
+                    : `🔄 Revision Requested: Deliverable v${deliverable.version}`,
+                description: action === 'APPROVE'
+                    ? `Client approved deliverable v${deliverable.version} for project "${deliverable.project.name}".`
+                    : `Client requested changes on deliverable v${deliverable.version} for project "${deliverable.project.name}".`,
+                projectName: deliverable.project.name,
+                metaDetails: [
+                    { label: 'Decision', value: action },
+                    { label: 'Deliverable', value: `Version ${deliverable.version}` },
+                    { label: 'Client Feedback', value: comments || 'None provided' },
+                    { label: 'Date', value: new Date().toLocaleString() }
+                ],
+                actionText: 'View Deliverables in Project',
+                actionUrl: `http://localhost:3000/projects/${deliverable.projectId}`
+            }).catch(err => console.error('[Approval Notification Error]', err));
         }
 
         return approval;

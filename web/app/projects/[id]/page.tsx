@@ -3,14 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/src/api/client';
-import { ArrowLeft, Plus, Lock, Upload, CheckCircle, Clock, Link as LinkIcon, FileText, LayoutGrid, Code, ListTodo, Layers, DollarSign, Activity, AlertCircle, Calendar } from 'lucide-react';
+import {
+    ArrowLeft, Plus, Lock, Upload, CheckCircle, Clock, Link as LinkIcon,
+    FileText, LayoutGrid, Code, ListTodo, Layers, DollarSign, Activity,
+    AlertCircle, Calendar, Trash2, X, ExternalLink, ShieldCheck, CheckSquare
+} from 'lucide-react';
 import Sidebar from '@/app/components/Sidebar';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 // --- Interfaces ---
-
 interface ApprovalAuditLog {
     action: string;
     comments?: string;
@@ -22,7 +23,7 @@ interface Scope {
     id: string;
     version: number;
     content: string;
-    price: string;
+    price: string | number;
     isLocked: boolean;
     createdAt: string;
 }
@@ -38,36 +39,21 @@ interface Deliverable {
 
 interface Invoice {
     id: string;
-    amount: string;
+    amount: string | number;
     status: 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE';
     createdAt: string;
-    dueDate?: string; // New
-    items?: { description: string; amount: number }[]; // New
+    dueDate?: string;
+    payments?: any[];
 }
 
 interface Task {
     id: string;
     title: string;
     status: 'TODO' | 'IN_PROGRESS' | 'DONE';
-    assignee?: { name: string; avatar: string };
-    subtasks: { id: string; title: string; completed: boolean }[];
+    assignee?: string;
     dueDate?: string;
-    priority?: 'HIGH' | 'MEDIUM' | 'LOW'; // New field for ClickUp style
-}
-
-interface GitHubData {
-    repo: string;
-    connected: boolean;
-    commits: { message: string; author: string; date: string; hash: string }[];
-    prs: { title: string; status: 'OPEN' | 'MERGED'; author: string }[];
-}
-
-interface ActivityLog {
-    id: string;
-    user: string;
-    action: string;
-    target: string;
-    timestamp: string;
+    subtasks?: { id: string; title: string; completed: boolean }[];
+    priority?: 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
 interface Project {
@@ -80,9 +66,8 @@ interface Project {
     invoices: Invoice[];
     status: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED';
     tasks: Task[];
-    github?: GitHubData;
-    activity: ActivityLog[];
-    dueDate?: string;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export default function ProjectDetails() {
@@ -91,116 +76,49 @@ export default function ProjectDetails() {
     const [project, setProject] = useState<Project | null>(null);
     const [user, setUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'overview' | 'scope' | 'deliverables' | 'invoices' | 'tasks' | 'code'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'deliverables' | 'scope' | 'invoices' | 'code'>('overview');
 
-    // Onboarding State
-    const [showTour, setShowTour] = useState(false);
-    const [tourStep, setTourStep] = useState(0);
+    // Forms & Modals
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [taskFormData, setTaskFormData] = useState({
+        title: '',
+        assignee: '',
+        priority: 'MEDIUM',
+        status: 'TODO',
+        dueDate: ''
+    });
 
-    // Tour Steps Configuration
-    const tourSteps = [
-        {
-            target: 'overview',
-            title: 'Project Command Center',
-            content: 'This is your dashboard. Check project health, budget status, and recent activity at a glance.'
-        },
-        {
-            target: 'scope',
-            title: 'The Statement of Work',
-            content: 'Define exactly what is being built here. Approved items become your "Promise" to the client.'
-        },
-        {
-            target: 'tasks',
-            title: 'Task Management',
-            content: 'Track progress with our new Board view. Assign tasks, set priorities, and upload proofs when done.'
-        }
-    ];
-
-    // UI State for Detailed Views
-    const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-
-    // Forms State
     const [newScopeContent, setNewScopeContent] = useState('');
     const [newScopePrice, setNewScopePrice] = useState('');
     const [newDeliverableUrl, setNewDeliverableUrl] = useState('');
     const [newDeliverableNotes, setNewDeliverableNotes] = useState('');
-
-    // Sidebar Items Configuration
-    const sidebarItems = [
-        { id: 'overview', label: 'Overview', icon: LayoutGrid },
-        { id: 'scope', label: 'Scope', icon: FileText },
-        { id: 'deliverables', label: 'Deliverables', icon: Layers },
-        { id: 'tasks', label: 'Tasks', icon: ListTodo },
-        { id: 'invoices', label: 'Invoices', icon: DollarSign },
-        { id: 'code', label: 'Code', icon: Code },
-    ];
+    const [newInvoiceAmount, setNewInvoiceAmount] = useState('');
 
     useEffect(() => {
         fetchProject();
-        // Check for first-time visitor (mock)
-        const hasSeenTour = localStorage.getItem('agency_tour_completed');
-        if (!hasSeenTour) {
-            setTimeout(() => setShowTour(true), 1000); // Small delay for dramatic effect
-        }
     }, [params.id]);
-
-    const handleTourNext = () => {
-        if (tourStep < tourSteps.length - 1) {
-            const nextStep = tourStep + 1;
-            setTourStep(nextStep);
-            setActiveTab(tourSteps[nextStep].target as any); // Auto-navigate tabs
-        } else {
-            setShowTour(false);
-            localStorage.setItem('agency_tour_completed', 'true');
-        }
-    };
 
     const fetchProject = async () => {
         try {
             const { data } = await api.get(`/projects/${params.id}`);
 
-            // Map backend task data
-            const mappedTasks = data.tasks?.map((t: any) => ({
+            // Clean real tasks mapping
+            const mappedTasks = (data.tasks || []).map((t: any) => ({
                 ...t,
-                assignee: t.assignee ? { name: t.assignee, avatar: t.assignee[0].toUpperCase() } : undefined,
+                assignee: typeof t.assignee === 'string' ? t.assignee : t.assignee?.name || '',
                 subtasks: t.subtasks || [],
-                priority: t.priority || ['HIGH', 'MEDIUM', 'LOW'][Math.floor(Math.random() * 3)] // Mock priority if missing
-            })) || [];
-
-            // Mock GitHub Data
-            const mockGithub: GitHubData = {
-                repo: 'agency-os/client-portal',
-                connected: false,
-                commits: [
-                    { message: 'feat: add task management', author: 'Alice', date: '2h ago', hash: 'a1b2c3d' },
-                    { message: 'fix: login button alignment', author: 'Bob', date: '5h ago', hash: 'e5f6g7h' },
-                ],
-                prs: [{ title: 'Feature/Tasks', status: 'OPEN', author: 'Alice' }]
-            };
-
-            // Mock Activity Data (Overview)
-            const mockActivity: ActivityLog[] = [
-                { id: '1', user: 'System', action: 'generated', target: 'Invoice #1023', timestamp: '2 hours ago' },
-                { id: '2', user: 'Client', action: 'approved', target: 'Scope v1.2', timestamp: 'Yesterday' },
-                { id: '3', user: 'Bob', action: 'uploaded', target: 'Wireframes.pdf', timestamp: '2 days ago' },
-            ];
-
-            // Mock Invoices (Expanded)
-            const mockInvoices: Invoice[] = data.invoices?.length ? data.invoices : [
-                { id: 'INV-2024-001', amount: '5000', status: 'PAID', createdAt: new Date(Date.now() - 840000000).toISOString(), items: [{ description: 'Initial Deposit', amount: 5000 }] },
-                { id: 'INV-2024-002', amount: '7500', status: 'SENT', createdAt: new Date().toISOString(), items: [{ description: 'Milestone 1: Design', amount: 7500 }] }
-            ];
+                priority: t.priority || 'MEDIUM'
+            }));
 
             setProject({
                 ...data,
-                tasks: mappedTasks,
-                github: mockGithub,
-                activity: mockActivity,
-                invoices: mockInvoices,
-                dueDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString()
+                scopes: data.scopes || [],
+                deliverables: data.deliverables || [],
+                invoices: data.invoices || [],
+                tasks: mappedTasks
             });
 
-            api.get('/auth/me').then(res => setUser(res.data)).catch(() => { });
+            api.get('/auth/me').then(res => setUser(res.data)).catch(() => {});
         } catch (error) {
             console.error('Failed to fetch project', error);
         } finally {
@@ -208,478 +126,681 @@ export default function ProjectDetails() {
         }
     };
 
-    // --- Handlers (Restored) ---
+    // Task Creation
+    const handleCreateTask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!project || !taskFormData.title.trim()) return;
 
-    const handleAddTask = async (status: 'TODO' | 'IN_PROGRESS' | 'DONE' = 'TODO') => {
-        if (!project) return;
-        const title = prompt('Task Title:');
-        if (!title) return;
-        const assignee = prompt('Assignee Name (optional):');
         try {
-            await api.post('/tasks', { projectId: project.id, title, status, assignee });
-            fetchProject();
-        } catch (err: any) { alert(err.message); }
+            await api.post('/tasks', {
+                projectId: project.id,
+                title: taskFormData.title.trim(),
+                status: taskFormData.status || 'TODO',
+                assignee: taskFormData.assignee.trim() || undefined,
+                dueDate: taskFormData.dueDate || undefined
+            });
+
+            setIsTaskModalOpen(false);
+            setTaskFormData({
+                title: '',
+                assignee: '',
+                priority: 'MEDIUM',
+                status: 'TODO',
+                dueDate: ''
+            });
+
+            await fetchProject();
+        } catch (err: any) {
+            alert(err.response?.data?.error || err.message || 'Failed to add task');
+        }
     };
 
-    const handleAddSubtask = async (taskId: string) => {
-        const title = prompt('Subtask Title:');
-        if (!title) return;
+    // Toggle Task Status
+    const handleToggleTaskStatus = async (task: Task) => {
+        const nextStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
         try {
-            await api.post(`/tasks/${taskId}/subtasks`, { title });
-            fetchProject();
-        } catch (err: any) { alert(err.message); }
+            await api.patch(`/tasks/${task.id}`, { status: nextStatus });
+            await fetchProject();
+        } catch (err: any) {
+            alert('Failed to update task status');
+        }
     };
 
-    const handleToggleSubtask = async (subtask: { id: string; completed: boolean; title: string }) => {
+    // Delete Task
+    const handleDeleteTask = async (taskId: string) => {
         try {
-            await api.patch(`/tasks/subtasks/${subtask.id}`, { completed: !subtask.completed, title: subtask.title });
-            fetchProject();
-        } catch (err: any) { alert(err.message); }
+            await api.delete(`/tasks/${taskId}`);
+            await fetchProject();
+        } catch (err: any) {
+            alert('Failed to delete task');
+        }
     };
 
+    // Add Scope
     const handleAddScope = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!project) return;
         try {
-            await api.post(`/projects/${project.id}/scopes`, { content: newScopeContent, price: parseFloat(newScopePrice) || 0 });
-            setNewScopeContent(''); setNewScopePrice('');
-            fetchProject();
-        } catch (err) { alert('Failed to add scope'); }
+            await api.post(`/projects/${project.id}/scopes`, {
+                content: newScopeContent,
+                price: parseFloat(newScopePrice) || 0
+            });
+            setNewScopeContent('');
+            setNewScopePrice('');
+            await fetchProject();
+        } catch (err) {
+            alert('Failed to add scope');
+        }
     };
 
-    const handleLockScope = async (scopeId: string) => {
-        if (!project) return;
-        try {
-            await api.patch(`/projects/${project.id}/scopes/${scopeId}/lock`);
-            fetchProject();
-        } catch (err) { alert('Failed to lock scope'); }
-    };
-
+    // Add Deliverable
     const handleUploadDeliverable = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!project) return;
-        if (!newDeliverableUrl.startsWith('http')) { alert('Please enter a valid URL'); return; }
+        if (!project || !newDeliverableUrl) return;
         try {
-            await api.post('/deliverables', { projectId: project.id, fileUrl: newDeliverableUrl, notes: newDeliverableNotes });
-            setNewDeliverableUrl(''); setNewDeliverableNotes('');
-            fetchProject();
-        } catch (err: any) { alert(err.message); }
+            await api.post(`/projects/${project.id}/deliverables`, {
+                fileUrl: newDeliverableUrl,
+                notes: newDeliverableNotes
+            });
+            setNewDeliverableUrl('');
+            setNewDeliverableNotes('');
+            await fetchProject();
+        } catch (err) {
+            alert('Failed to upload deliverable');
+        }
+    };
+
+    // Add Invoice
+    const handleCreateInvoice = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!project || !newInvoiceAmount) return;
+        try {
+            await api.post('/invoices', {
+                projectId: project.id,
+                amount: parseFloat(newInvoiceAmount),
+                status: 'SENT'
+            });
+            setNewInvoiceAmount('');
+            await fetchProject();
+        } catch (err) {
+            alert('Failed to generate invoice');
+        }
     };
 
     const copyClientLink = () => {
         if (!project) return;
-        const link = `https://agency-3vru.vercel.app/client/access/${project.clientAccessParam}`;
-        navigator.clipboard.writeText(link);
-        alert(`Copied link: ${link}`);
+        const url = `${window.location.origin}/client/access/${project.clientAccessParam}`;
+        navigator.clipboard.writeText(url);
+        alert('Client Access Link copied to clipboard!');
     };
 
-    const handleCompleteProject = async () => {
-        if (!project) return;
-        if (!confirm('Are you sure?')) return;
-        try {
-            await api.patch(`/projects/${project.id}`, { status: 'COMPLETED' });
-            fetchProject();
-        } catch (err) { alert('Failed'); }
-    };
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
+                <div className="animate-pulse flex items-center gap-3 text-indigo-400">
+                    <Activity className="animate-spin" size={20} />
+                    <span>Loading project workspace...</span>
+                </div>
+            </div>
+        );
+    }
 
+    if (!project) {
+        return (
+            <div className="min-h-screen bg-[#030712] text-white flex flex-col items-center justify-center p-6">
+                <h2 className="text-xl font-bold mb-2">Project not found</h2>
+                <p className="text-gray-400 text-sm mb-6">The requested project could not be found or you do not have permission to view it.</p>
+                <Link href="/?view=projects" className="bg-indigo-600 px-4 py-2 rounded-xl text-sm font-bold text-white">
+                    Return to Projects
+                </Link>
+            </div>
+        );
+    }
 
-    // --- Render Functions (Dashboard) ---
-
-    if (loading) return <div className="p-8 text-gray-300">Loading...</div>;
-    if (!project) return <div className="p-8 text-gray-300">Project not found</div>;
-
-    const totalBudget = project.scopes.reduce((sum, s) => sum + parseFloat(s.price), 0);
-    const invoicedAmount = project.invoices.reduce((sum, i) => sum + parseFloat(i.amount), 0);
-    const paidAmount = project.invoices.filter(i => i.status === 'PAID').reduce((sum, i) => sum + parseFloat(i.amount), 0);
-    const completedTasks = project.tasks.filter(t => t.status === 'DONE').length;
-    const progress = project.tasks.length ? Math.round((completedTasks / project.tasks.length) * 100) : 0;
+    // Calculations based strictly on real project data
+    const totalScopeValue = project.scopes?.reduce((sum, s) => sum + (parseFloat(s.price.toString()) || 0), 0) || 0;
+    const invoicedAmount = project.invoices?.reduce((sum, i) => sum + (parseFloat(i.amount.toString()) || 0), 0) || 0;
+    const paidAmount = project.invoices?.filter(i => i.status === 'PAID').reduce((sum, i) => sum + (parseFloat(i.amount.toString()) || 0), 0) || 0;
+    const completedTasksCount = project.tasks?.filter(t => t.status === 'DONE').length || 0;
+    const totalTasksCount = project.tasks?.length || 0;
+    const taskProgressPct = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
 
     return (
-        <div className="min-h-screen flex text-gray-100 font-sans">
+        <div className="min-h-screen flex text-gray-100 font-sans bg-[#030712]">
+            {/* Consistent Global agnecyos Sidebar */}
             <Sidebar
                 user={user}
-                customNavItems={sidebarItems}
-                activeItemId={activeTab}
-                onViewChange={(id) => {
-                    setActiveTab(id as any);
-                    setSelectedInvoiceId(null); // Reset detail view
+                onSignOut={() => {
+                    localStorage.removeItem('token');
+                    router.push('/login');
+                }}
+                currentView="projects"
+                currentProjectName={project.name}
+                counts={{
+                    projects: 1,
+                    tasks: project.tasks?.filter(t => t.status !== 'DONE').length || 0,
+                    invoices: project.invoices?.length || 0,
+                    approvals: project.deliverables?.length || 0
                 }}
             />
-            <div className="flex-1 p-8 overflow-y-auto">
-                {/* Header */}
-                <div className="max-w-6xl mx-auto mb-8">
-                    <div className="glass rounded-xl p-6 shadow-xl flex justify-between items-center mb-6">
+
+            {/* Main Project Work Area */}
+            <main className="flex-1 p-6 md:p-10 overflow-y-auto">
+                <div className="max-w-6xl mx-auto space-y-6">
+                    {/* Project Header Bar */}
+                    <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-white tracking-tight">{project.name}</h1>
-                            <p className="text-gray-400">Client: {project.clientEmail}</p>
+                            <div className="flex items-center gap-2 mb-1.5">
+                                <Link
+                                    href="/?view=projects"
+                                    className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1"
+                                >
+                                    <ArrowLeft size={13} /> Projects
+                                </Link>
+                                <span className="text-gray-600">/</span>
+                                <span className="text-xs text-gray-400 font-medium">Workspace</span>
+                            </div>
+                            <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">{project.name}</h1>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                                Client: <span className="text-gray-200 font-medium">{project.clientEmail || 'No client email assigned'}</span>
+                            </p>
                         </div>
-                        <div className="flex gap-2">
+
+                        <div className="flex items-center gap-3 flex-wrap">
                             <button
                                 onClick={copyClientLink}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 font-medium transition-all"
+                                className="flex items-center gap-2 px-3.5 py-2 bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 rounded-xl hover:bg-indigo-500/20 text-xs font-bold transition-all shadow-sm"
                             >
-                                <LinkIcon size={18} /> Portal Link
+                                <LinkIcon size={14} /> Copy Client Portal Link
                             </button>
+                            <Link
+                                href="/portal/preview"
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-gray-200 border border-white/10 rounded-xl text-xs font-bold transition-all"
+                            >
+                                <ExternalLink size={14} /> Preview Portal
+                            </Link>
                         </div>
                     </div>
 
-                    {/* OVERVIEW DASHBOARD */}
+                    {/* Top Tab Bar Navigation (Consistent SaaS Standard) */}
+                    <div className="flex items-center gap-1 border-b border-white/[0.08] pb-1 overflow-x-auto">
+                        {[
+                            { id: 'overview', label: 'Overview', icon: LayoutGrid },
+                            { id: 'tasks', label: 'Tasks', icon: ListTodo, badge: totalTasksCount },
+                            { id: 'deliverables', label: 'Deliverables', icon: Layers, badge: project.deliverables?.length || 0 },
+                            { id: 'scope', label: 'Scope of Work', icon: FileText, badge: project.scopes?.length || 0 },
+                            { id: 'invoices', label: 'Invoices', icon: DollarSign, badge: project.invoices?.length || 0 },
+                            { id: 'code', label: 'Code & Specs', icon: Code },
+                        ].map((tab) => {
+                            const TabIcon = tab.icon;
+                            const isActive = activeTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id as any)}
+                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all whitespace-nowrap ${
+                                        isActive
+                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                                            : 'text-gray-400 hover:text-white hover:bg-white/[0.04]'
+                                    }`}
+                                >
+                                    <TabIcon size={15} />
+                                    <span>{tab.label}</span>
+                                    {tab.badge !== undefined && tab.badge > 0 && (
+                                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isActive ? 'bg-white/20 text-white' : 'bg-white/[0.08] text-gray-300'}`}>
+                                            {tab.badge}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* --- TAB 1: OVERVIEW --- */}
                     {activeTab === 'overview' && (
                         <div className="space-y-6">
-                            {/* Metrics Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div className="glass p-5 rounded-xl border border-white/5">
-                                    <h3 className="text-gray-400 text-xs uppercase font-semibold mb-2">Project Health</h3>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                                            <Activity size={20} />
-                                        </div>
-                                        <div>
-                                            <span className="text-2xl font-bold text-white">{progress}%</span>
-                                            <p className="text-xs text-gray-500 flex items-center gap-1">
-                                                {completedTasks} / {project.tasks.length} Tasks
-                                            </p>
-                                        </div>
+                            {/* Key Operational Metric Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="bg-[#0a0f1d] border border-white/[0.08] p-5 rounded-2xl">
+                                    <span className="text-[10px] font-bold uppercase text-gray-400">Task Completion</span>
+                                    <div className="text-2xl font-bold text-white mt-1 mb-2 font-mono">
+                                        {taskProgressPct}%
                                     </div>
-                                    <div className="w-full bg-white/5 h-1.5 mt-4 rounded-full overflow-hidden">
-                                        <div className="bg-emerald-500 h-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                                    <div className="text-xs text-gray-400 mb-3">
+                                        {completedTasksCount} / {totalTasksCount} tasks completed
+                                    </div>
+                                    <div className="w-full bg-white/[0.06] h-1.5 rounded-full overflow-hidden">
+                                        <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${taskProgressPct}%` }}></div>
                                     </div>
                                 </div>
 
-                                <div className="glass p-5 rounded-xl border border-white/5">
-                                    <h3 className="text-gray-400 text-xs uppercase font-semibold mb-2">Budget Utilized</h3>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                                            <DollarSign size={20} />
-                                        </div>
-                                        <div>
-                                            <span className="text-2xl font-bold text-white">${invoicedAmount.toLocaleString()}</span>
-                                            <p className="text-xs text-gray-500">of ${totalBudget.toLocaleString()} Scope</p>
-                                        </div>
+                                <div className="bg-[#0a0f1d] border border-white/[0.08] p-5 rounded-2xl">
+                                    <span className="text-[10px] font-bold uppercase text-gray-400">Contract Scope</span>
+                                    <div className="text-2xl font-bold text-white mt-1 mb-2 font-mono">
+                                        ₹{totalScopeValue.toLocaleString('en-IN')}
                                     </div>
-                                    {/* Mini Budget Bar */}
-                                    <div className="flex h-1.5 mt-4 rounded-full overflow-hidden bg-white/5">
-                                        <div className="bg-indigo-500 h-full" style={{ width: `${(invoicedAmount / (totalBudget || 1)) * 100}%` }}></div>
+                                    <div className="text-xs text-gray-400">
+                                        {project.scopes?.length || 0} locked milestones
                                     </div>
                                 </div>
 
-                                <div className="glass p-5 rounded-xl border border-white/5">
-                                    <h3 className="text-gray-400 text-xs uppercase font-semibold mb-2">Outstanding</h3>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400">
-                                            <AlertCircle size={20} />
-                                        </div>
-                                        <div>
-                                            <span className="text-2xl font-bold text-white">${(invoicedAmount - paidAmount).toLocaleString()}</span>
-                                            <p className="text-xs text-gray-500">Unpaid Invoices</p>
-                                        </div>
+                                <div className="bg-[#0a0f1d] border border-white/[0.08] p-5 rounded-2xl">
+                                    <span className="text-[10px] font-bold uppercase text-gray-400">Collected (Paid)</span>
+                                    <div className="text-2xl font-bold text-emerald-400 mt-1 mb-2 font-mono">
+                                        ₹{paidAmount.toLocaleString('en-IN')}
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                        {project.invoices?.filter(i => i.status === 'PAID').length || 0} paid invoices
                                     </div>
                                 </div>
 
-                                <div className="glass p-5 rounded-xl border border-white/5">
-                                    <h3 className="text-gray-400 text-xs uppercase font-semibold mb-2">Deadline</h3>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
-                                            <Calendar size={20} />
-                                        </div>
-                                        <div>
-                                            <span className="text-xl font-bold text-white">{new Date(project.dueDate || '').toLocaleDateString()}</span>
-                                            <p className="text-xs text-gray-500">Target Completion</p>
-                                        </div>
+                                <div className="bg-[#0a0f1d] border border-white/[0.08] p-5 rounded-2xl">
+                                    <span className="text-[10px] font-bold uppercase text-gray-400">Pending Billing</span>
+                                    <div className="text-2xl font-bold text-amber-400 mt-1 mb-2 font-mono">
+                                        ₹{(invoicedAmount - paidAmount).toLocaleString('en-IN')}
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                        Unpaid client balances
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                {/* Recent Activity */}
-                                <div className="lg:col-span-2 glass p-6 rounded-2xl border border-white/5">
-                                    <h3 className="text-white font-semibold mb-4">Recent Activity</h3>
-                                    <div className="space-y-4">
-                                        {project.activity.map((log) => (
-                                            <div key={log.id} className="flex gap-4 items-start group">
-                                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-xs font-bold text-gray-400 border border-white/10 group-hover:border-indigo-500/50 group-hover:text-indigo-400 transition-colors">
-                                                    {log.user[0]}
-                                                </div>
-                                                <div className="flex-1 pt-1">
-                                                    <p className="text-sm text-gray-200">
-                                                        <span className="font-semibold text-white">{log.user}</span> {log.action} <span className="text-indigo-300">{log.target}</span>
-                                                    </p>
-                                                    <p className="text-xs text-gray-500 mt-1">{log.timestamp}</p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {project.activity.length === 0 && <p className="text-gray-500 text-sm">No activity recorded.</p>}
-                                    </div>
-                                </div>
-
-                                {/* Pending Actions / Quick Links */}
-                                <div className="glass p-6 rounded-2xl border border-white/5">
-                                    <h3 className="text-white font-semibold mb-4">Quick Actions</h3>
-                                    <div className="space-y-3">
-                                        <button onClick={() => setActiveTab('scope')} className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex justify-between items-center group">
-                                            <span className="text-sm text-gray-300 group-hover:text-white">Add Scope Item</span>
-                                            <Plus size={16} className="text-gray-500 group-hover:text-white" />
-                                        </button>
-                                        <button onClick={() => setActiveTab('tasks')} className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex justify-between items-center group">
-                                            <span className="text-sm text-gray-300 group-hover:text-white">Create Task</span>
-                                            <ListTodo size={16} className="text-gray-500 group-hover:text-white" />
-                                        </button>
-                                        <button onClick={() => handleCompleteProject()} className="w-full text-left p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors flex justify-between items-center group">
-                                            <span className="text-sm text-gray-300 group-hover:text-white">Generate Report</span>
-                                            <FileText size={16} className="text-gray-500 group-hover:text-white" />
+                            {/* Quick Actions & Recent Tasks summary */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-bold text-white text-sm">Project Tasks Summary</h3>
+                                        <button
+                                            onClick={() => setIsTaskModalOpen(true)}
+                                            className="text-xs text-indigo-400 hover:text-indigo-300 font-bold"
+                                        >
+                                            + Add Task
                                         </button>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* SCOPE TAB */}
-                    {activeTab === 'scope' && (
-                        <div className="space-y-6">
-                            <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-xl">
-                                <h3 className="text-indigo-400 font-semibold flex items-center gap-2 mb-1">
-                                    <FileText size={18} /> Statement of Work (SOW)
-                                </h3>
-                                <p className="text-sm text-gray-300">
-                                    Define the specific items, features, or services included in this project.
-                                    Locking an item signals a signed agreement. This is your "Promise".
-                                </p>
-                            </div>
-                            {project.scopes?.length === 0 && (
-                                <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/5 border-dashed">
-                                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <FileText className="text-gray-500" size={32} />
-                                    </div>
-                                    <h4 className="text-white font-medium mb-1">No Scope Defined</h4>
-                                    <p className="text-sm text-gray-400 max-w-sm mx-auto">Start by adding line items that you agree to deliver.</p>
-                                </div>
-                            )}
-                            {project.scopes?.map((scope) => (
-                                <div key={scope.id} className="glass p-6 rounded-2xl border border-white/5">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-white">Version {scope.version}</h3>
-                                            <p className="text-xs text-gray-500">{new Date(scope.createdAt).toLocaleDateString()}</p>
+                                    {totalTasksCount === 0 ? (
+                                        <div className="text-center py-6 text-gray-500 text-xs">
+                                            No tasks added yet for this project.
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            {scope.isLocked ? (
-                                                <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs border border-emerald-500/20 flex items-center gap-1"><Lock size={12} /> Approved</span>
-                                            ) : (
-                                                <button onClick={() => handleLockScope(scope.id)} className="text-xs text-indigo-400 hover:text-indigo-300">Mark as Approved</button>
-                                            )}
-                                            <span className="text-xl font-bold text-white">${parseFloat(scope.price).toLocaleString()}</span>
-                                        </div>
-                                    </div>
-                                    <div className="prose prose-invert max-w-none text-gray-300"><p>{scope.content}</p></div>
-                                </div>
-                            ))}
-                            <form onSubmit={handleAddScope} className="glass p-6 rounded-2xl border border-white/5">
-                                <h3 className="text-lg font-semibold text-white mb-4">Add Line Item to SOW</h3>
-                                <div className="space-y-4">
-                                    <textarea placeholder="Describe the deliverable..." value={newScopeContent} onChange={(e) => setNewScopeContent(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500 min-h-[100px]" />
-                                    <div className="flex gap-4">
-                                        <input type="number" placeholder="Price" value={newScopePrice} onChange={(e) => setNewScopePrice(e.target.value)} className="bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500" />
-                                        <button type="submit" className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors">Add to Scope</button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    )}
-
-                    {/* DELIVERABLES TAB */}
-                    {activeTab === 'deliverables' && (
-                        <div className="space-y-6">
-                            <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
-                                <h3 className="text-emerald-400 font-semibold flex items-center gap-2 mb-1">
-                                    <Layers size={18} /> Project Assets & Deliverables
-                                </h3>
-                                <p className="text-sm text-gray-300">
-                                    Upload finished work for client review. Once approved, these items are considered complete.
-                                    This is your "Proof" of work.
-                                </p>
-                            </div>
-                            <form onSubmit={handleUploadDeliverable} className="glass p-6 rounded-2xl border border-white/5">
-                                <h3 className="text-lg font-semibold text-white mb-4">Submit Asset for Review</h3>
-                                <div className="space-y-4">
-                                    <input type="text" placeholder="File URL..." value={newDeliverableUrl} onChange={(e) => setNewDeliverableUrl(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500" />
-                                    <textarea placeholder="Notes..." value={newDeliverableNotes} onChange={(e) => setNewDeliverableNotes(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white outline-none focus:border-indigo-500 min-h-[80px]" />
-                                    <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium">Submit for Approval</button>
-                                </div>
-                            </form>
-                            <div className="space-y-4">
-                                {project.deliverables?.map((del) => {
-                                    const isApproved = del.approvals.some(a => a.action === 'APPROVE');
-                                    const isRequested = del.approvals.some(a => a.action === 'REQUEST_CHANGES');
-                                    return (
-                                        <div key={del.id} className="glass p-4 rounded-xl border border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                                            <div className="w-full">
-                                                <div className="flex flex-wrap items-center gap-2 mb-1">
-                                                    <span className="font-semibold text-white">Version {del.version}</span>
-                                                    {isApproved ? <span className="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs">APPROVED</span> : isRequested ? <span className="text-red-400 bg-red-400/10 px-2 py-0.5 rounded text-xs">CHANGES REQUESTED</span> : <span className="text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded text-xs">PENDING APPROVAL</span>}
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {project.tasks.slice(0, 4).map(task => (
+                                                <div key={task.id} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between text-xs">
+                                                    <span className={`font-medium ${task.status === 'DONE' ? 'line-through text-gray-500' : 'text-white'}`}>
+                                                        {task.title}
+                                                    </span>
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${task.status === 'DONE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>
+                                                        {task.status}
+                                                    </span>
                                                 </div>
-                                                <a href={del.fileUrl} target="_blank" className="text-indigo-400 hover:text-indigo-300 underline text-sm">{del.fileUrl}</a>
-                                                {del.notes && <p className="text-gray-300 text-sm mt-1">{del.notes}</p>}
-                                            </div>
-                                            <div className="text-right text-sm text-gray-400">{new Date(del.createdAt).toLocaleDateString()}</div>
+                                            ))}
                                         </div>
-                                    );
-                                })}
-                                {project.deliverables?.length === 0 && <div className="text-center py-12 bg-white/5 rounded-2xl border border-white/5 border-dashed"><h4 className="text-white font-medium">No Deliverables Yet</h4><p className="text-sm text-gray-400">When you finish a task, upload it here.</p></div>}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* TASKS TAB */}
-                    {activeTab === 'tasks' && project.tasks && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 overflow-x-auto pb-4">
-                            {['TODO', 'IN_PROGRESS', 'DONE'].map(status => (
-                                <div key={status} className="glass p-4 rounded-xl border border-white/5 h-fit min-h-[200px]">
-                                    <h3 className="text-sm font-medium text-gray-400 mb-4 px-2 flex justify-between items-center">{status.replace('_', ' ')} <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-gray-300">{project.tasks.filter(t => t.status === status).length}</span></h3>
-                                    <div className="space-y-3">
-                                        {project.tasks.filter(t => t.status === status).map(task => (
-                                            <div key={task.id} className="bg-white/5 p-3 rounded-lg border border-white/10 hover:border-white/20 transition-all">
-                                                <div className="flex justify-between items-start mb-2"><span className="text-sm font-medium text-white">{task.title}</span>{task.assignee && <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] text-white font-bold">{task.assignee.avatar}</div>}</div>
-                                                {task.subtasks.length > 0 && <div className="space-y-1 mb-2">{task.subtasks.map(sub => (<div key={sub.id} className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer" onClick={() => handleToggleSubtask(sub)}><div className={`w-3 h-3 rounded-full border border-gray-600 ${sub.completed ? 'bg-emerald-500/20' : ''}`} />{sub.title}</div>))}</div>}
-                                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5"><button onClick={() => handleAddSubtask(task.id)} className="text-[10px] text-gray-400 flex items-center gap-1"><Plus size={10} /> Subtask</button></div>
-                                            </div>
-                                        ))}
-                                        <button onClick={() => handleAddTask(status as any)} className="w-full py-2 text-xs text-gray-400 border border-dashed border-white/10 rounded-lg">+ Add Task</button>
-                                    </div>
+                                    )}
                                 </div>
-                            ))}
-                        </div>
-                    )}
 
-                    {/* INVOICES TAB (ENHANCED) */}
-                    {activeTab === 'invoices' && (
-                        <div className="space-y-6">
-                            {selectedInvoiceId ? (
-                                // DETAILED INVOICE VIEW
-                                <div className="glass p-8 rounded-2xl border border-white/5">
-                                    <button onClick={() => setSelectedInvoiceId(null)} className="flex items-center text-sm text-gray-400 hover:text-white mb-6"><ArrowLeft size={16} className="mr-1" /> Back to List</button>
-
-                                    {/* Payment Flow Stepper */}
-                                    <div className="mb-8">
-                                        <div className="flex justify-between items-center relative z-10">
-                                            {['Generated', 'Sent', 'Viewed', 'Paid', 'Deposited'].map((step, i) => {
-                                                const currentStatus = project.invoices.find(i => i.id === selectedInvoiceId)?.status;
-                                                const statusMap = { 'DRAFT': 0, 'SENT': 1, 'PAID': 3, 'OVERDUE': 1 };
-                                                const currentStepIndex = statusMap[currentStatus || 'DRAFT'] ?? 0;
-                                                const active = i <= currentStepIndex;
-                                                return (
-                                                    <div key={step} className="flex flex-col items-center gap-2">
-                                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${active ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-transparent border-gray-700 text-gray-500'}`}>
-                                                            {i + 1}
-                                                        </div>
-                                                        <span className={`text-xs ${active ? 'text-white font-medium' : 'text-gray-600'}`}>{step}</span>
-                                                    </div>
-                                                );
-                                            })}
+                                <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                                    <h3 className="font-bold text-white text-sm mb-4">Deliverables & Approvals</h3>
+                                    {project.deliverables?.length === 0 ? (
+                                        <div className="text-center py-6 text-gray-500 text-xs">
+                                            No deliverables uploaded yet. Upload files in the Deliverables tab.
                                         </div>
-                                        <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-800 -z-0 hidden md:block" style={{ top: '240px' }}></div>
-                                        {/* CSS Hack for stepper line, would normally use relative positioning better */}
-                                    </div>
-
-                                    {/* Invoice Content */}
-                                    {(() => {
-                                        const invoice = project.invoices.find(inv => inv.id === selectedInvoiceId);
-                                        if (!invoice) return null;
-                                        return (
-                                            <div className="bg-white/5 rounded-xl p-8 border border-white/5">
-                                                <div className="flex justify-between items-start mb-8">
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {project.deliverables.map(d => (
+                                                <div key={d.id} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between text-xs">
                                                     <div>
-                                                        <h2 className="text-2xl font-bold text-white mb-1">Invoice</h2>
-                                                        <p className="text-gray-400">#{invoice.id}</p>
+                                                        <span className="font-medium text-white">v{d.version} Deliverable Package</span>
+                                                        <div className="text-[10px] text-gray-400">{d.notes || 'Files uploaded for review'}</div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="text-sm text-gray-400">Amount Due</p>
-                                                        <p className="text-3xl font-bold text-white">${invoice.amount}</p>
-                                                        <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold border ${invoice.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{invoice.status}</span>
-                                                    </div>
+                                                    <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                                                        Uploaded
+                                                    </span>
                                                 </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                                                <div className="space-y-4 mb-8">
-                                                    <div className="flex justify-between text-sm text-gray-400 border-b border-gray-700 pb-2">
-                                                        <span>Description</span>
-                                                        <span>Amount</span>
-                                                    </div>
-                                                    {invoice.items?.map((item, idx) => (
-                                                        <div key={idx} className="flex justify-between text-white">
-                                                            <span>{item.description}</span>
-                                                            <span>${item.amount.toLocaleString()}</span>
+                    {/* --- TAB 2: TASKS --- */}
+                    {activeTab === 'tasks' && (
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between bg-[#0a0f1d] p-4 rounded-2xl border border-white/[0.08]">
+                                <div className="text-xs text-gray-400">
+                                    Total: <strong className="text-white">{totalTasksCount}</strong> • Completed: <strong className="text-emerald-400">{completedTasksCount}</strong>
+                                </div>
+                                <button
+                                    onClick={() => setIsTaskModalOpen(true)}
+                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow"
+                                >
+                                    <Plus size={14} /> Add Task
+                                </button>
+                            </div>
+
+                            {totalTasksCount === 0 ? (
+                                <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
+                                    <CheckSquare size={36} className="text-indigo-400 mx-auto mb-3" />
+                                    <h3 className="text-base font-bold text-white mb-1">No tasks yet</h3>
+                                    <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
+                                        Add tasks to organize deliverables and calculate project health automatically.
+                                    </p>
+                                    <button
+                                        onClick={() => setIsTaskModalOpen(true)}
+                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
+                                    >
+                                        <Plus size={16} /> Create Task
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {project.tasks.map((task) => {
+                                        const isDone = task.status === 'DONE';
+                                        return (
+                                            <div
+                                                key={task.id}
+                                                className="p-4 rounded-xl bg-[#0a0f1d] border border-white/[0.08] flex items-center justify-between gap-4 hover:border-white/[0.15] transition-all"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => handleToggleTaskStatus(task)}
+                                                        className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                                                            isDone
+                                                                ? 'bg-emerald-600 border-emerald-500 text-white'
+                                                                : 'border-gray-600 hover:border-indigo-400'
+                                                        }`}
+                                                    >
+                                                        {isDone && <CheckCircle size={14} />}
+                                                    </button>
+                                                    <div>
+                                                        <div className={`text-sm font-semibold ${isDone ? 'line-through text-gray-500' : 'text-white'}`}>
+                                                            {task.title}
                                                         </div>
-                                                    ))}
-                                                    {!invoice.items && <p className="text-gray-500 italic">No line items details.</p>}
+                                                        <div className="text-xs text-gray-400">
+                                                            Assigned: {task.assignee || 'Unassigned'}
+                                                            {task.dueDate && ` • Due ${new Date(task.dueDate).toLocaleDateString()}`}
+                                                        </div>
+                                                    </div>
                                                 </div>
 
-                                                <div className="flex justify-between pt-4 border-t border-gray-700">
-                                                    <span className="text-white font-bold">Total</span>
-                                                    <span className="text-white font-bold">${invoice.amount}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                                                        isDone
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                            : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                                    }`}>
+                                                        {task.status}
+                                                    </span>
+                                                    <button
+                                                        onClick={() => handleDeleteTask(task.id)}
+                                                        className="text-gray-600 hover:text-red-400 p-1"
+                                                        title="Delete Task"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
                                                 </div>
                                             </div>
                                         );
-                                    })()}
-                                </div>
-                            ) : (
-                                // LIST VIEW
-                                <div className="space-y-4">
-                                    {project.invoices?.length === 0 ? (
-                                        <div className="text-center py-12 glass rounded-xl border border-dashed border-white/10"><FileText size={48} className="mx-auto text-gray-500 mb-4" /><p className="text-gray-300">No invoices yet.</p></div>
-                                    ) : (
-                                        project.invoices?.map((inv) => (
-                                            <div key={inv.id} onClick={() => setSelectedInvoiceId(inv.id)} className="cursor-pointer glass p-6 rounded-xl border border-white/5 flex justify-between items-center hover:bg-white/5 transition-colors group">
-                                                <div>
-                                                    <h3 className="font-bold text-white tracking-wide group-hover:text-indigo-400 transition-colors">Invoice #{inv.id.slice(0, 8)}</h3>
-                                                    <p className="text-gray-400 text-sm">Generated on {new Date(inv.createdAt).toLocaleDateString()}</p>
-                                                </div>
-                                                <div className="flex items-center gap-4">
-                                                    <div className="text-right">
-                                                        <span className="block text-xl font-bold text-white mb-1">${inv.amount}</span>
-                                                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold border ${inv.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-500 border-amber-500/20'}`}>{inv.status}</span>
-                                                    </div>
-                                                    <ArrowLeft size={16} className="rotate-180 text-gray-600 group-hover:text-indigo-400" />
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
+                                    })}
                                 </div>
                             )}
                         </div>
                     )}
-                    {/* CODE TAB */}
-                    {activeTab === 'code' && project.github && (
-                        <div className="glass p-6 rounded-2xl border border-white/5"><div className="flex items-center gap-4 mb-6"><div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center text-white"><Code size={24} /></div><div><h3 className="text-lg font-bold text-white">{project.github.repo}</h3><p className={`text-sm ${project.github.connected ? 'text-emerald-400' : 'text-orange-400'}`}>{project.github.connected ? 'Connected' : 'Not Connected'}</p></div></div><h3 className="text-sm font-semibold uppercase text-gray-500 mb-4">Recent Commits</h3><div className="space-y-4">{project.github.commits.map((c, i) => (<div key={i} className="flex gap-3"><div className="mt-1 w-2 h-2 rounded-full bg-gray-600" /><div><p className="text-sm text-gray-200 font-mono">{c.message}</p><p className="text-xs text-gray-500">{c.author} • {c.date}</p></div></div>))}</div></div>
-                    )}
-                </div>
-            </div>
 
-            {/* TOUR OVERLAY */}
-            {showTour && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="bg-[#0f1115] border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl relative overflow-hidden">
-                        {/* Decorative Gradient */}
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500"></div>
-                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-3xl"></div>
+                    {/* --- TAB 3: DELIVERABLES --- */}
+                    {activeTab === 'deliverables' && (
+                        <div className="space-y-6">
+                            <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                                <h3 className="text-sm font-bold text-white mb-2">Upload Deliverable for Client Approval</h3>
+                                <p className="text-xs text-gray-400 mb-4">Upload finished assets to the client portal for sign-off.</p>
+                                <form onSubmit={handleUploadDeliverable} className="space-y-3">
+                                    <input
+                                        required
+                                        type="url"
+                                        placeholder="Deliverable File URL (Figma, Google Drive, ZIP link)..."
+                                        value={newDeliverableUrl}
+                                        onChange={(e) => setNewDeliverableUrl(e.target.value)}
+                                        className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="Notes for client review..."
+                                        value={newDeliverableNotes}
+                                        onChange={(e) => setNewDeliverableNotes(e.target.value)}
+                                        className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md"
+                                    >
+                                        Upload Deliverable
+                                    </button>
+                                </form>
+                            </div>
 
-                        <div className="mb-6">
-                            <h2 className="text-2xl font-bold text-white mb-2">{tourSteps[tourStep].title}</h2>
-                            <p className="text-gray-400 leading-relaxed">{tourSteps[tourStep].content}</p>
-                        </div>
-
-                        <div className="flex items-center justify-between mt-8">
-                            <div className="flex gap-2">
-                                {tourSteps.map((_, i) => (
-                                    <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === tourStep ? 'w-8 bg-indigo-500' : 'w-2 bg-gray-700'}`}></div>
+                            <div className="space-y-3">
+                                {project.deliverables?.map(d => (
+                                    <div key={d.id} className="p-4 rounded-xl bg-[#0a0f1d] border border-white/[0.08] flex items-center justify-between">
+                                        <div>
+                                            <div className="font-bold text-white text-sm">v{d.version} Deliverable</div>
+                                            <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline">
+                                                {d.fileUrl}
+                                            </a>
+                                            {d.notes && <div className="text-xs text-gray-400 mt-1">{d.notes}</div>}
+                                        </div>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                            Ready for Review
+                                        </span>
+                                    </div>
                                 ))}
                             </div>
+                        </div>
+                    )}
+
+                    {/* --- TAB 4: SCOPE OF WORK --- */}
+                    {activeTab === 'scope' && (
+                        <div className="space-y-6">
+                            <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                                <h3 className="text-sm font-bold text-white mb-2">Add Scope Milestone</h3>
+                                <form onSubmit={handleAddScope} className="space-y-3">
+                                    <textarea
+                                        required
+                                        placeholder="Describe scope deliverables, terms, and technical boundaries..."
+                                        value={newScopeContent}
+                                        onChange={(e) => setNewScopeContent(e.target.value)}
+                                        className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl p-3 text-xs text-white h-24 focus:outline-none"
+                                    />
+                                    <input
+                                        required
+                                        type="number"
+                                        placeholder="Price in INR (₹)..."
+                                        value={newScopePrice}
+                                        onChange={(e) => setNewScopePrice(e.target.value)}
+                                        className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white focus:outline-none"
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs"
+                                    >
+                                        Save Scope
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div className="space-y-3">
+                                {project.scopes?.map(s => (
+                                    <div key={s.id} className="p-4 rounded-xl bg-[#0a0f1d] border border-white/[0.08] flex items-center justify-between">
+                                        <div>
+                                            <div className="text-xs text-gray-400 uppercase font-bold">Scope v{s.version}</div>
+                                            <div className="text-sm text-white mt-1">{s.content}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="font-mono font-bold text-emerald-400 text-base">₹{Number(s.price).toLocaleString('en-IN')}</div>
+                                            <span className="text-[10px] text-gray-500">{s.isLocked ? 'Locked' : 'Draft'}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- TAB 5: INVOICES --- */}
+                    {activeTab === 'invoices' && (
+                        <div className="space-y-6">
+                            <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                                <h3 className="text-sm font-bold text-white mb-2">Create Project Invoice</h3>
+                                <form onSubmit={handleCreateInvoice} className="flex gap-3">
+                                    <input
+                                        required
+                                        type="number"
+                                        placeholder="Amount in INR (₹)..."
+                                        value={newInvoiceAmount}
+                                        onChange={(e) => setNewInvoiceAmount(e.target.value)}
+                                        className="flex-1 bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs"
+                                    >
+                                        Generate Invoice
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div className="space-y-3">
+                                {project.invoices?.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-500 text-xs bg-[#0a0f1d] rounded-2xl border border-dashed border-white/[0.08]">
+                                        No invoices generated for this project yet.
+                                    </div>
+                                ) : (
+                                    project.invoices.map(inv => (
+                                        <div key={inv.id} className="p-4 rounded-xl bg-[#0a0f1d] border border-white/[0.08] flex items-center justify-between">
+                                            <div>
+                                                <div className="font-mono font-bold text-white text-sm">{inv.id.substring(0, 12)}</div>
+                                                <div className="text-xs text-gray-400">Created: {new Date(inv.createdAt).toLocaleDateString()}</div>
+                                            </div>
+                                            <div className="text-right">
+                                                <div className="font-mono font-bold text-white text-sm">₹{Number(inv.amount).toLocaleString('en-IN')}</div>
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                                                    inv.status === 'PAID' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                }`}>
+                                                    {inv.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- TAB 6: CODE & GITHUB --- */}
+                    {activeTab === 'code' && (
+                        <div className="p-8 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] text-center space-y-3">
+                            <Code size={32} className="text-indigo-400 mx-auto" />
+                            <h3 className="font-bold text-white text-base">GitHub &amp; Code Repositories</h3>
+                            <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                                Connect your agency GitHub organization to automatically sync commit logs, pull requests, and deployment branches.
+                            </p>
                             <button
-                                onClick={handleTourNext}
-                                className="px-6 py-2 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                                onClick={() => alert('GitHub Integration: Enter repo credentials in Settings > Integrations.')}
+                                className="bg-white/[0.05] hover:bg-white/[0.1] text-white px-4 py-2 rounded-xl text-xs font-bold border border-white/10"
                             >
-                                {tourStep === tourSteps.length - 1 ? 'Get Started' : 'Next'} <ArrowLeft size={16} className="rotate-180" />
+                                Connect Repository
                             </button>
                         </div>
+                    )}
+                </div>
+            </main>
+
+            {/* Task Creation Modal */}
+            {isTaskModalOpen && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-[#0a0f1d] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
+                        <div className="flex justify-between items-center mb-5 pb-3 border-b border-white/[0.08]">
+                            <h3 className="text-base font-bold text-white">Add Project Task</h3>
+                            <button onClick={() => setIsTaskModalOpen(false)} className="text-gray-400 hover:text-white">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateTask} className="space-y-4">
+                            <div>
+                                <label className="text-xs text-gray-400 block mb-1">Task Title *</label>
+                                <input
+                                    required
+                                    type="text"
+                                    placeholder="e.g. Implement Navigation & Auth"
+                                    value={taskFormData.title}
+                                    onChange={(e) => setTaskFormData({ ...taskFormData, title: e.target.value })}
+                                    className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="text-xs text-gray-400 block mb-1">Assignee</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Rahul Sharma"
+                                    value={taskFormData.assignee}
+                                    onChange={(e) => setTaskFormData({ ...taskFormData, assignee: e.target.value })}
+                                    className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs text-gray-400 block mb-1">Status</label>
+                                    <select
+                                        value={taskFormData.status}
+                                        onChange={(e) => setTaskFormData({ ...taskFormData, status: e.target.value })}
+                                        className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white"
+                                    >
+                                        <option value="TODO">To Do</option>
+                                        <option value="IN_PROGRESS">In Progress</option>
+                                        <option value="DONE">Done</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-400 block mb-1">Priority</label>
+                                    <select
+                                        value={taskFormData.priority}
+                                        onChange={(e) => setTaskFormData({ ...taskFormData, priority: e.target.value as any })}
+                                        className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white"
+                                    >
+                                        <option value="LOW">Low</option>
+                                        <option value="MEDIUM">Medium</option>
+                                        <option value="HIGH">High</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs text-gray-400 block mb-1">Due Date</label>
+                                <input
+                                    type="date"
+                                    value={taskFormData.dueDate}
+                                    onChange={(e) => setTaskFormData({ ...taskFormData, dueDate: e.target.value })}
+                                    className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-4 py-2 text-xs text-white"
+                                />
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsTaskModalOpen(false)}
+                                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30"
+                                >
+                                    Add Task
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

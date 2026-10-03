@@ -48,14 +48,9 @@ export default function PricingPage() {
             {/* Navigation (Floating Pill from LandingPage) */}
             <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4">
                 <div className="glass max-w-7xl w-full flex items-center justify-between px-8 py-4 rounded-full">
-                    <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white">
-                                <path fillRule="evenodd" d="M9.315 2.894a43.08 43.08 0 0110.873 5.346l.004.002.003.003v.001l.001.001v.001a44.026 44.026 0 01-3.619 11.233.75.75 0 01-.735.485c-.947 0-1.874-.066-2.778-.19l-.353-.049-2.025-4.502.663-3.644-2.766-2.073-1.63 3.398-3.085.343a24.288 24.288 0 01-1.488-8.156.75.75 0 01.62-.843c1.782-.26 3.73-.393 5.776-.393.18 0 .363.001.547.004h.001zM4.25 10.75a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3zM15 16.5a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3z" clipRule="evenodd" />
-                            </svg>
-                        </div>
-                        <Link href="/" className="text-white text-xl font-bold tracking-tight">agnecyos</Link>
-                    </div>
+                    <Link href="/" className="flex items-center gap-3">
+                        <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                    </Link>
                     <div className="hidden md:flex items-center gap-8">
                         <Link href="/workflow" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Workflow</Link>
                         <Link href="/features" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Features</Link>
@@ -309,14 +304,9 @@ export default function PricingPage() {
             <footer className="max-w-7xl mx-auto px-6 py-16 border-t border-white/5 relative">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
                     <div className="col-span-1 md:col-span-2 space-y-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-white">
-                                    <path fillRule="evenodd" d="M9.315 2.894a43.08 43.08 0 0110.873 5.346l.004.002.003.003v.001l.001.001v.001a44.026 44.026 0 01-3.619 11.233.75.75 0 01-.735.485c-.947 0-1.874-.066-2.778-.19l-.353-.049-2.025-4.502.663-3.644-2.766-2.073-1.63 3.398-3.085.343a24.288 24.288 0 01-1.488-8.156.75.75 0 01.62-.843c1.782-.26 3.73-.393 5.776-.393.18 0 .363.001.547.004h.001zM4.25 10.75a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3zM15 16.5a.75.75 0 00-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 00.75-.75v-3a.75.75 0 00-.75-.75h-3z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                            <h2 className="text-white text-xl font-bold">agnecyos</h2>
-                        </div>
+                        <Link href="/" className="flex items-center gap-3">
+                            <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                        </Link>
                         <p className="text-slate-500 max-w-sm">The world's most advanced agency management platform for teams that demand excellence.</p>
                     </div>
                     <div className="flex gap-8 text-sm text-slate-500 hover:text-white transition-colors">

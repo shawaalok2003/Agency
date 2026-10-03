@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../index';
 import { authenticate } from '../utils/auth';
+import { sendProcessUpdateEmail } from '../services/emailService';
 
 const createLeadSchema = z.object({
     name: z.string().min(1),
@@ -24,8 +25,8 @@ export async function leadRoutes(server: FastifyInstance) {
 
     // CREATE LEAD
     server.post('/leads', { preHandler: [authenticate] }, async (request, reply) => {
-        console.log('RECEIVED LEAD POST:', request.body);
-        const userId = (request as any).user.id;
+        const user = (request as any).user;
+        const userId = user.id;
         const result = createLeadSchema.safeParse(request.body);
         if (!result.success) {
             console.error('LEAD VALIDATION FAILED:', result.error);
@@ -40,28 +41,63 @@ export async function leadRoutes(server: FastifyInstance) {
                 value: result.data.value || 0
             }
         });
+
+        if (user?.email) {
+            sendProcessUpdateEmail({
+                to: user.email,
+                category: 'LEAD',
+                title: `New Lead Captured: ${lead.name}`,
+                description: `A new sales lead "${lead.name}" (${lead.company || 'Direct'}) was added with value ₹${Number(lead.value).toLocaleString('en-IN')}.`,
+                metaDetails: [
+                    { label: 'Lead Name', value: lead.name },
+                    { label: 'Company', value: lead.company || 'N/A' },
+                    { label: 'Deal Value', value: `₹${Number(lead.value).toLocaleString('en-IN')}` },
+                    { label: 'Pipeline Stage', value: lead.status }
+                ],
+                actionText: 'View in Sales Pipeline',
+                actionUrl: 'http://localhost:3000/?view=pipeline'
+            }).catch(err => console.error('[Email Notification Error]', err));
+        }
+
         return lead;
     });
 
     // UPDATE STATUS
     server.patch('/leads/:id/status', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = (request as any).user;
         const { id } = request.params as { id: string };
         const { status } = request.body as { status: string };
 
-        // Simple validation, ideally use zod
         const lead = await prisma.lead.update({
             where: { id },
             data: { status: status as any }
         });
+
+        if (user?.email) {
+            sendProcessUpdateEmail({
+                to: user.email,
+                category: 'LEAD',
+                title: `Lead Pipeline Stage: ${lead.name} -> [${lead.status}]`,
+                description: `Lead "${lead.name}" moved to the "${lead.status}" stage in your CRM pipeline.`,
+                metaDetails: [
+                    { label: 'Lead', value: lead.name },
+                    { label: 'New Stage', value: lead.status },
+                    { label: 'Deal Value', value: `₹${Number(lead.value).toLocaleString('en-IN')}` }
+                ],
+                actionText: 'View Pipeline',
+                actionUrl: 'http://localhost:3000/?view=pipeline'
+            }).catch(err => console.error('[Email Notification Error]', err));
+        }
+
         return lead;
     });
 
-
     // CONVERT TO PROJECT (WIN)
     server.post('/leads/:id/win', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = (request as any).user;
         const { id } = request.params as { id: string };
         const { clientEmail, projectName } = request.body as { clientEmail: string, projectName?: string };
-        const userId = (request as any).user.id;
+        const userId = user.id;
 
         const lead = await prisma.lead.findUnique({ where: { id } });
         if (!lead) return reply.code(404).send({ error: 'Lead not found' });
@@ -79,10 +115,60 @@ export async function leadRoutes(server: FastifyInstance) {
                 clientEmail: clientEmail || lead.email || 'pending@client.com',
                 status: 'ACTIVE',
                 userId: userId,
-                // Add default scope or deliverable if needed
             }
         });
 
+        if (user?.email) {
+            sendProcessUpdateEmail({
+                to: user.email,
+                category: 'LEAD',
+                title: `🎉 Deal Won! ${lead.name} converted to Active Project`,
+                description: `Congratulations! Lead "${lead.name}" has been won and active project "${project.name}" has been created.`,
+                projectName: project.name,
+                metaDetails: [
+                    { label: 'Client Email', value: project.clientEmail || 'N/A' },
+                    { label: 'Deal Value', value: `₹${Number(lead.value).toLocaleString('en-IN')}` },
+                    { label: 'Project Status', value: project.status }
+                ],
+                actionText: 'Open New Project',
+                actionUrl: `http://localhost:3000/projects/${project.id}`
+            }).catch(err => console.error('[Email Notification Error]', err));
+        }
+
         return project;
+    });
+
+    // UPDATE LEAD
+    server.patch('/leads/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const userId = (request as any).user.id;
+        const body = request.body as any;
+
+        const lead = await prisma.lead.findFirst({ where: { id, ownerId: userId } });
+        if (!lead) return reply.code(404).send({ error: 'Lead not found' });
+
+        const updated = await prisma.lead.update({
+            where: { id },
+            data: {
+                name: body.name !== undefined ? body.name : undefined,
+                company: body.company !== undefined ? body.company : undefined,
+                email: body.email !== undefined ? body.email : undefined,
+                value: body.value !== undefined ? body.value : undefined,
+                status: body.status !== undefined ? body.status : undefined,
+            }
+        });
+        return updated;
+    });
+
+    // DELETE LEAD
+    server.delete('/leads/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const { id } = request.params as { id: string };
+        const userId = (request as any).user.id;
+
+        const lead = await prisma.lead.findFirst({ where: { id, ownerId: userId } });
+        if (!lead) return reply.code(404).send({ error: 'Lead not found' });
+
+        await prisma.lead.delete({ where: { id } });
+        return { success: true };
     });
 }
