@@ -16,7 +16,12 @@ import { taskRoutes } from './routes/tasks';
 import { invoiceRoutes } from './routes/invoices';
 
 const buildServer = async () => {
-    const server = Fastify({ logger: true });
+    const server = Fastify({
+        logger: true,
+        rewriteUrl: (req) => {
+            return req.url ? req.url.replace(/\/{2,}/g, '/') : '/';
+        }
+    });
 
     await server.register(cors, {
         origin: '*',

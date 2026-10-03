@@ -19,7 +19,12 @@ const team_1 = require("./routes/team");
 const tasks_1 = require("./routes/tasks");
 const invoices_1 = require("./routes/invoices");
 const buildServer = async () => {
-    const server = (0, fastify_1.default)({ logger: true });
+    const server = (0, fastify_1.default)({
+        logger: true,
+        rewriteUrl: (req) => {
+            return req.url ? req.url.replace(/\/{2,}/g, '/') : '/';
+        }
+    });
     await server.register(cors_1.default, {
         origin: '*',
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
