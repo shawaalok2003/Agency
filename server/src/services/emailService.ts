@@ -107,14 +107,23 @@ export async function sendOtpEmail(to: string, otp: string) {
     `;
 
     const html = emailTemplateWrapper(contentHtml, `Your verification code is ${otp}. Valid for 10 minutes.`);
+    const text = `Your agnecyos verification code is: ${otp}\n\nThis 6-digit security code expires in 10 minutes.\nIf you did not request this code, please ignore this email.`;
 
     if (config.isConfigured && transporter) {
         try {
             const info = await transporter.sendMail({
                 from: config.from,
+                replyTo: config.user,
                 to,
                 subject,
+                text,
                 html,
+                priority: 'high',
+                headers: {
+                    'X-Priority': '1 (Highest)',
+                    'X-MSMail-Priority': 'High',
+                    'Importance': 'High',
+                }
             });
             console.log(`[Google SMTP] OTP email sent successfully to ${to}. MessageId: ${info.messageId}`);
             return { success: true, messageId: info.messageId };
