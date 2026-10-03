@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 
 const getSmtpConfig = () => {
     const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || 'smtp.gmail.com';
-    const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '465', 10);
+    const port = parseInt(process.env.SMTP_PORT || process.env.EMAIL_PORT || '587', 10);
     // Support environment variables from cloud deployment (Render, Vercel, Railway, etc.),
     // with reliable default fallback to the configured agnecyos Google SMTP credentials.
     const user = (process.env.SMTP_USER || process.env.EMAIL_USER || 'aalokentre22@gmail.com').trim();
@@ -13,23 +13,21 @@ const getSmtpConfig = () => {
     return { host, port, user, pass, from, isConfigured };
 };
 
-let cachedTransporter: any = null;
-
-function getTransporter() {
+function createTransporter(portNumber: number) {
     const config = getSmtpConfig();
-    if (!cachedTransporter && config.isConfigured) {
-        cachedTransporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: config.user,
-                pass: config.pass,
-            },
-            connectionTimeout: 15000,
-            greetingTimeout: 10000,
-            socketTimeout: 20000,
-        });
-    }
-    return { transporter: cachedTransporter, config };
+    return nodemailer.createTransport({
+        host: config.host,
+        port: portNumber,
+        secure: portNumber === 465, // true for 465, false for 587
+        requireTLS: portNumber === 587,
+        auth: {
+            user: config.user,
+            pass: config.pass,
+        },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+    });
 }
 
 // Base responsive HTML wrapper for agnecyos branded emails
@@ -85,7 +83,7 @@ function emailTemplateWrapper(contentHtml: string, previewText: string = ''): st
 
 // 1. Send OTP Email for User Registration & Verification
 export async function sendOtpEmail(to: string, otp: string) {
-    const { transporter, config } = getTransporter();
+    const config = getSmtpConfig();
 
     const subject = `Your agnecyos Verification Code: ${otp}`;
     const contentHtml = `
@@ -109,27 +107,40 @@ export async function sendOtpEmail(to: string, otp: string) {
     const html = emailTemplateWrapper(contentHtml, `Your verification code is ${otp}. Valid for 10 minutes.`);
     const text = `Your agnecyos verification code is: ${otp}\n\nThis 6-digit security code expires in 10 minutes.\nIf you did not request this code, please ignore this email.`;
 
-    if (config.isConfigured && transporter) {
+    if (config.isConfigured) {
+        const mailOptions = {
+            from: config.from,
+            replyTo: config.user,
+            to,
+            subject,
+            text,
+            html,
+            priority: 'high' as const,
+            headers: {
+                'X-Priority': '1 (Highest)',
+                'X-MSMail-Priority': 'High',
+                'Importance': 'High',
+            }
+        };
+
+        // 1. Try Port 587 STARTTLS first (Standard for cloud platforms like Render)
         try {
-            const info = await transporter.sendMail({
-                from: config.from,
-                replyTo: config.user,
-                to,
-                subject,
-                text,
-                html,
-                priority: 'high',
-                headers: {
-                    'X-Priority': '1 (Highest)',
-                    'X-MSMail-Priority': 'High',
-                    'Importance': 'High',
-                }
-            });
-            console.log(`[Google SMTP] OTP email sent successfully to ${to}. MessageId: ${info.messageId}`);
-            return { success: true, messageId: info.messageId };
-        } catch (error: any) {
-            console.error(`[Google SMTP Error] Failed to send OTP to ${to}:`, error.message);
-            return { success: false, error: error.message };
+            const transporter587 = createTransporter(587);
+            const info = await transporter587.sendMail(mailOptions);
+            console.log(`[Google SMTP 587] OTP email sent successfully to ${to}. MessageId: ${info.messageId}`);
+            return { success: true, messageId: info.messageId, port: 587 };
+        } catch (err587: any) {
+            console.warn(`[Google SMTP 587 Failed] ${err587.message}. Retrying on port 465 SSL...`);
+            // 2. Fallback to Port 465 SSL
+            try {
+                const transporter465 = createTransporter(465);
+                const info = await transporter465.sendMail(mailOptions);
+                console.log(`[Google SMTP 465] OTP email sent successfully to ${to}. MessageId: ${info.messageId}`);
+                return { success: true, messageId: info.messageId, port: 465 };
+            } catch (err465: any) {
+                console.error(`[Google SMTP Error] Both port 587 and 465 failed:`, err465.message);
+                return { success: false, error: `Port 587: ${err587.message} | Port 465: ${err465.message}` };
+            }
         }
     } else {
         console.log(`\n================== [AGNECYOS GOOGLE SMTP SIMULATION] ==================`);
@@ -156,7 +167,7 @@ export interface ProcessUpdatePayload {
 }
 
 export async function sendProcessUpdateEmail(payload: ProcessUpdatePayload) {
-    const { transporter, config } = getTransporter();
+    const config = getSmtpConfig();
 
     const categoryBadgeClass =
         payload.category === 'APPROVAL' ? 'badge-green' :
@@ -201,19 +212,32 @@ export async function sendProcessUpdateEmail(payload: ProcessUpdatePayload) {
     const subject = `[agnecyos] ${payload.title}`;
     const html = emailTemplateWrapper(contentHtml, payload.description);
 
-    if (config.isConfigured && transporter) {
+    if (config.isConfigured) {
+        const mailOptions = {
+            from: config.from,
+            replyTo: config.user,
+            to: payload.to,
+            subject,
+            text: `${payload.title}\n\n${payload.description}`,
+            html,
+        };
+
         try {
-            const info = await transporter.sendMail({
-                from: config.from,
-                to: payload.to,
-                subject,
-                html,
-            });
-            console.log(`[Google SMTP] Process update email (${payload.category}) sent to ${payload.to}.`);
+            const transporter587 = createTransporter(587);
+            const info = await transporter587.sendMail(mailOptions);
+            console.log(`[Google SMTP 587] Process update email (${payload.category}) sent to ${payload.to}.`);
             return { success: true, messageId: info.messageId };
-        } catch (error: any) {
-            console.error(`[Google SMTP Error] Process update failed to send to ${payload.to}:`, error.message);
-            return { success: false, error: error.message };
+        } catch (err587: any) {
+            console.warn(`[Google SMTP 587 Failed] Retrying process update on port 465...`);
+            try {
+                const transporter465 = createTransporter(465);
+                const info = await transporter465.sendMail(mailOptions);
+                console.log(`[Google SMTP 465] Process update email (${payload.category}) sent to ${payload.to}.`);
+                return { success: true, messageId: info.messageId };
+            } catch (err465: any) {
+                console.error(`[Google SMTP Error] Process update failed to send to ${payload.to}:`, err465.message);
+                return { success: false, error: err465.message };
+            }
         }
     } else {
         console.log(`\n================== [AGNECYOS PROCESS UPDATE SIMULATION] ==================`);
