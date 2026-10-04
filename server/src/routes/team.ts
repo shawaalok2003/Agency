@@ -9,6 +9,7 @@ const createTeamSchema = z.object({
     role: z.string().min(1, 'Role is required'),
     department: z.string().default('SALES'),
     phone: z.string().optional(),
+    loginPassword: z.string().optional(),
     status: z.enum(['ACTIVE', 'INVITED', 'ON_LEAVE']).default('ACTIVE'),
     projectsCount: z.number().int().nonnegative().default(0),
     leadsAssigned: z.number().int().nonnegative().default(0),
@@ -24,6 +25,7 @@ const updateTeamSchema = z.object({
     role: z.string().min(1).optional(),
     department: z.string().optional(),
     phone: z.string().optional(),
+    loginPassword: z.string().optional(),
     status: z.enum(['ACTIVE', 'INVITED', 'ON_LEAVE']).optional(),
     projectsCount: z.number().int().nonnegative().optional(),
     leadsAssigned: z.number().int().nonnegative().optional(),
@@ -60,7 +62,7 @@ export async function teamRoutes(server: FastifyInstance) {
         return members;
     });
 
-    // 2. Add new team member (Sales, Dev, Design, PM, etc.)
+    // 2. Add or reactivate team member
     server.post('/team', { preHandler: [authenticate] }, async (request, reply) => {
         const result = createTeamSchema.safeParse(request.body);
         if (!result.success) {
@@ -75,7 +77,16 @@ export async function teamRoutes(server: FastifyInstance) {
         });
 
         if (existing) {
-            return reply.code(409).send({ error: `A team member with email ${normalizedEmail} already exists` });
+            // Update and reactivate existing record instead of failing
+            const updated = await prisma.teamMember.update({
+                where: { email: normalizedEmail },
+                data: {
+                    ...result.data,
+                    email: normalizedEmail,
+                    status: 'ACTIVE'
+                }
+            });
+            return updated;
         }
 
         const member = await prisma.teamMember.create({
@@ -122,7 +133,7 @@ export async function teamRoutes(server: FastifyInstance) {
         return updated;
     });
 
-    // 4. Delete team member
+    // 4. Delete team member (removes both TeamMember record AND associated User account so email can be freely recreated)
     server.delete('/team/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { id } = request.params as { id: string };
 
@@ -131,7 +142,17 @@ export async function teamRoutes(server: FastifyInstance) {
             return reply.code(404).send({ error: 'Team member not found' });
         }
 
+        const memberEmail = existing.email.toLowerCase().trim();
+
+        // Delete from TeamMember
         await prisma.teamMember.delete({ where: { id } });
+
+        // Clean up corresponding User account if not primary Company Admin
+        const userAccount = await prisma.user.findUnique({ where: { email: memberEmail } });
+        if (userAccount && userAccount.role !== 'OWNER' && userAccount.email !== 'aalokshaw2003@gmail.com') {
+            await prisma.dailyReport.deleteMany({ where: { userId: userAccount.id } }).catch(() => {});
+            await prisma.user.delete({ where: { id: userAccount.id } }).catch(() => {});
+        }
 
         return { success: true, message: `Team member ${existing.name} removed from workspace` };
     });

@@ -163,20 +163,75 @@ export async function authRoutes(server: FastifyInstance) {
         const { name, email, password, role, department, phone } = result.data;
         const normalizedEmail = email.toLowerCase().trim();
 
+        const passwordHash = await bcrypt.hash(password, 10);
+        const companyName = caller.companyName || 'dhandaeasy';
+
         // Check if user already exists
         const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
         if (existing) {
-            return reply.code(409).send({ error: `An account with email ${normalizedEmail} already exists` });
-        }
+            if (existing.role === 'OWNER' || existing.email === 'aalokshaw2003@gmail.com') {
+                return reply.code(400).send({ error: `Cannot overwrite primary Company Admin account` });
+            }
 
-        const passwordHash = await bcrypt.hash(password, 10);
-        const companyName = caller.companyName || 'dhandaeasy';
+            // Update existing user credentials and reactivate
+            const updatedUser = await prisma.user.update({
+                where: { id: existing.id },
+                data: {
+                    name,
+                    passwordHash,
+                    loginPassword: password,
+                    role: role as any,
+                    department,
+                    companyName,
+                    phone
+                }
+            });
+
+            // Upsert in TeamMember
+            await prisma.teamMember.upsert({
+                where: { email: normalizedEmail },
+                create: {
+                    name,
+                    email: normalizedEmail,
+                    role: role === 'SALES' ? 'Sales Representative' : role,
+                    department,
+                    phone,
+                    loginPassword: password,
+                    companyName,
+                    status: 'ACTIVE',
+                    rating: 5.0
+                },
+                update: {
+                    name,
+                    role: role === 'SALES' ? 'Sales Representative' : role,
+                    department,
+                    phone,
+                    loginPassword: password,
+                    status: 'ACTIVE'
+                }
+            });
+
+            return {
+                success: true,
+                message: `Login credentials reset and account reactivated for ${name} (${normalizedEmail})`,
+                user: {
+                    id: updatedUser.id,
+                    name: updatedUser.name,
+                    email: updatedUser.email,
+                    role: updatedUser.role,
+                    department: updatedUser.department,
+                    companyName: updatedUser.companyName,
+                    loginPassword: password
+                }
+            };
+        }
 
         const newUser = await prisma.user.create({
             data: {
                 name,
                 email: normalizedEmail,
                 passwordHash,
+                loginPassword: password,
                 role: role as any,
                 department,
                 companyName,
@@ -186,21 +241,28 @@ export async function authRoutes(server: FastifyInstance) {
         });
 
         // Also add or sync in TeamMember table
-        const existingMember = await prisma.teamMember.findUnique({ where: { email: normalizedEmail } });
-        if (!existingMember) {
-            await prisma.teamMember.create({
-                data: {
-                    name,
-                    email: normalizedEmail,
-                    role: role === 'SALES' ? 'Sales Representative' : role,
-                    department,
-                    phone,
-                    companyName,
-                    status: 'ACTIVE',
-                    rating: 5.0
-                }
-            });
-        }
+        await prisma.teamMember.upsert({
+            where: { email: normalizedEmail },
+            create: {
+                name,
+                email: normalizedEmail,
+                role: role === 'SALES' ? 'Sales Representative' : role,
+                department,
+                phone,
+                loginPassword: password,
+                companyName,
+                status: 'ACTIVE',
+                rating: 5.0
+            },
+            update: {
+                name,
+                role: role === 'SALES' ? 'Sales Representative' : role,
+                department,
+                phone,
+                loginPassword: password,
+                status: 'ACTIVE'
+            }
+        });
 
         return {
             success: true,
@@ -211,7 +273,8 @@ export async function authRoutes(server: FastifyInstance) {
                 email: newUser.email,
                 role: newUser.role,
                 department: newUser.department,
-                companyName: newUser.companyName
+                companyName: newUser.companyName,
+                loginPassword: password
             }
         };
     });

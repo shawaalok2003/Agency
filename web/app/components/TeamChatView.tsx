@@ -26,7 +26,7 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
     const [messages, setMessages] = useState<any[]>([]);
     const [messageInput, setMessageInput] = useState('');
     const [sending, setSending] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         fetchTeamDirectory();
@@ -34,17 +34,16 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
 
     useEffect(() => {
         fetchMessages();
-        const interval = setInterval(fetchMessages, 3500); // Polling for real-time chatter
+        const interval = setInterval(fetchMessages, 4000); // Polling for real-time chatter
         return () => clearInterval(interval);
     }, [activeChannel, activeDirectUser]);
 
     useEffect(() => {
-        scrollToBottom();
-    }, [messages]);
-
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    };
+        // Internal container scroll only - NEVER scrolls the window or page
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+    }, [messages.length, activeChannel, activeDirectUser]);
 
     const fetchTeamDirectory = async () => {
         try {
@@ -117,7 +116,7 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
             </div>
 
             {/* Main Chat Interface */}
-            <div className="h-[750px] bg-[#0a0f1d] border border-white/[0.08] rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-2xl">
+            <div className="h-[calc(100vh-170px)] min-h-[480px] max-h-[660px] bg-[#0a0f1d] border border-white/[0.08] rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-2xl">
                 {/* Left Channels / Direct Message Sidebar */}
                 <div className="w-full md:w-72 bg-[#060a14] border-r border-white/[0.06] flex flex-col justify-between shrink-0">
                     <div className="p-4 space-y-6 overflow-y-auto">
@@ -265,7 +264,7 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
                     </div>
 
                     {/* Messages Body */}
-                    <div className="flex-1 p-5 overflow-y-auto space-y-4">
+                    <div ref={messagesContainerRef} className="flex-1 p-5 overflow-y-auto space-y-4">
                         {messages.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-500">
                                 <MessageSquare size={36} className="text-gray-600 mb-2" />
@@ -319,7 +318,6 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
                                 );
                             })
                         )}
-                        <div ref={messagesEndRef} />
                     </div>
 
                     {/* Chat Input Composer */}

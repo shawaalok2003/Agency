@@ -10,7 +10,8 @@ import {
     Star, Trash2, Clock, TrendingUp, CheckSquare, ShieldCheck,
     ArrowUpRight, Bell, Sparkles, Download, ExternalLink, X, Command,
     AlertCircle, FolderPlus, UserCheck, Edit3, ArrowRight, ArrowLeft,
-    Phone, Mail, MessageSquare, Award, Flame, UserPlus, Filter, MoreVertical
+    Phone, Mail, MessageSquare, Award, Flame, UserPlus, Filter, MoreVertical,
+    Key, Eye, EyeOff, Copy
 } from 'lucide-react';
 import Sidebar from '@/app/components/Sidebar';
 import LandingPage from '@/app/components/LandingPage';
@@ -127,6 +128,7 @@ interface TeamMember {
     department?: string; // 'SALES' | 'OPERATIONS' | 'DEVELOPMENT' | 'DESIGN' | 'MANAGEMENT'
     phone?: string;
     status?: 'ACTIVE' | 'INVITED' | 'ON_LEAVE';
+    loginPassword?: string;
     projectsCount?: number;
     leadsAssigned?: number;
     dealsClosed?: number;
@@ -190,6 +192,11 @@ export default function Dashboard() {
     const [teamDepartmentFilter, setTeamDepartmentFilter] = useState<string>('ALL');
     const [teamSearchQuery, setTeamSearchQuery] = useState('');
     const [editingTeamMember, setEditingTeamMember] = useState<TeamMember | null>(null);
+    const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
+
+    const toggleRevealPassword = (id: string) => {
+        setRevealedPasswords(prev => ({ ...prev, [id]: !prev[id] }));
+    };
 
     // Global keyboard shortcut for Command Palette (Ctrl+K or Cmd+K)
     useEffect(() => {
@@ -499,6 +506,7 @@ export default function Dashboard() {
             name: member.name,
             role: member.role,
             email: member.email,
+            password: member.loginPassword || '',
             department: member.department || 'SALES',
             phone: member.phone || '',
             status: member.status || 'ACTIVE',
@@ -582,6 +590,7 @@ export default function Dashboard() {
                     email: formData.email,
                     department: formData.department || 'SALES',
                     phone: formData.phone || undefined,
+                    loginPassword: formData.password || undefined,
                     status: formData.status || 'ACTIVE',
                     leadsAssigned: parseInt(formData.leadsAssigned) || 0,
                     dealsClosed: parseInt(formData.dealsClosed) || 0,
@@ -591,6 +600,18 @@ export default function Dashboard() {
                 };
                 if (editingTeamMember) {
                     await api.patch(`/team/${editingTeamMember.id}`, payload);
+                    if (formData.password) {
+                        const targetRole = (formData.department === 'SALES' ? 'SALES' : (formData.role?.toUpperCase().includes('DEV') ? 'DEVELOPER' : 'TEAM_MEMBER'));
+                        await api.post('/auth/create-team-user', {
+                            name: formData.name,
+                            email: formData.email,
+                            password: formData.password,
+                            role: targetRole,
+                            department: formData.department || 'SALES',
+                            phone: formData.phone || undefined
+                        }).catch(() => {});
+                    }
+                    alert(`✅ Team Member Updated!\n\nEmail: ${formData.email}\nPassword: ${formData.password || '(unchanged)'}`);
                 } else {
                     if (formData.password) {
                         const targetRole = (formData.department === 'SALES' ? 'SALES' : (formData.role?.toUpperCase().includes('DEV') ? 'DEVELOPER' : 'TEAM_MEMBER'));
@@ -2112,6 +2133,39 @@ export default function Dashboard() {
                                                             </div>
                                                         )}
                                                     </div>
+
+                                                    {/* Member Login Password Visible to Admin */}
+                                                    <div className="mb-3 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-between text-xs">
+                                                        <div className="flex items-center gap-1.5 min-w-0">
+                                                            <Key size={13} className="text-amber-400 shrink-0" />
+                                                            <span className="text-[10px] text-gray-400 uppercase font-semibold">Password:</span>
+                                                            <span className="font-mono text-indigo-300 font-bold text-xs truncate">
+                                                                {revealedPasswords[m.id] ? (m.loginPassword || 'Aalok@6290') : '••••••••'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => toggleRevealPassword(m.id)}
+                                                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                                                title={revealedPasswords[m.id] ? "Hide password" : "Show password"}
+                                                            >
+                                                                {revealedPasswords[m.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const pass = m.loginPassword || 'Aalok@6290';
+                                                                    navigator.clipboard.writeText(pass);
+                                                                    alert(`Copied password for ${m.name}: ${pass}`);
+                                                                }}
+                                                                className="p-1 rounded text-gray-400 hover:text-emerald-400 hover:bg-white/10 transition-colors"
+                                                                title="Copy password"
+                                                            >
+                                                                <Copy size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
                                                 </div>
 
                                                 {/* Performance Metric Block */}
@@ -2531,37 +2585,35 @@ export default function Dashboard() {
                                         </div>
                                     </div>
 
-                                    {!editingTeamMember && (
-                                        <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
-                                                    <ShieldCheck size={14} className="text-indigo-400" />
-                                                    <span>Member Login Password *</span>
-                                                </label>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const randomPass = 'Team@' + Math.floor(1000 + Math.random() * 9000);
-                                                        setFormData({ ...formData, password: randomPass });
-                                                    }}
-                                                    className="text-[10px] text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2 py-0.5 rounded border border-indigo-500/30 transition-colors"
-                                                >
-                                                    + Generate Password
-                                                </button>
-                                            </div>
-                                            <input
-                                                required
-                                                type="text"
-                                                placeholder="e.g. Sales@2026!"
-                                                value={formData.password || ''}
-                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-400"
-                                            />
-                                            <p className="text-[10px] text-gray-400">
-                                                Admin creates the login credentials. The team member logs in at <span className="text-indigo-300 font-mono">/login</span> with this email and password.
-                                            </p>
+                                    <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                                                <ShieldCheck size={14} className="text-indigo-400" />
+                                                <span>Member Login Password *</span>
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const randomPass = 'Team@' + Math.floor(1000 + Math.random() * 9000);
+                                                    setFormData({ ...formData, password: randomPass });
+                                                }}
+                                                className="text-[10px] text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2 py-0.5 rounded border border-indigo-500/30 transition-colors"
+                                            >
+                                                + Generate Password
+                                            </button>
                                         </div>
-                                    )}
+                                        <input
+                                            required
+                                            type="text"
+                                            placeholder="e.g. Sales@2026!"
+                                            value={formData.password || ''}
+                                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                            className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-400"
+                                        />
+                                        <p className="text-[10px] text-gray-400">
+                                            Admin sets &amp; views credentials. The team member logs in at <span className="text-indigo-300 font-mono">/login</span> with this email and password.
+                                        </p>
+                                    </div>
 
                                     {/* Sales Performance Inputs (if Sales department) */}
                                     {(formData.department || 'SALES') === 'SALES' && (
