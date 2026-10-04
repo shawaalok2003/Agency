@@ -174,12 +174,20 @@ export async function teamRoutes(server: FastifyInstance) {
         const memberEmail = existing.email.toLowerCase().trim();
 
         // Delete from TeamMember
-        await prisma.teamMember.delete({ where: { id } });
+        await prisma.teamMember.delete({ where: { id } }).catch(() => {});
 
-        // Clean up corresponding User account if not primary Company Admin
+        // Clean up corresponding User account if not the calling admin
         const userAccount = await prisma.user.findUnique({ where: { email: memberEmail } });
-        if (userAccount && userAccount.role !== 'OWNER') {
+        if (userAccount && userAccount.id !== user.id) {
+            // Reassign any projects/leads to caller to prevent orphan/FK errors
+            await prisma.project.updateMany({ where: { userId: userAccount.id }, data: { userId: user.id } }).catch(() => {});
+            await prisma.lead.updateMany({ where: { ownerId: userAccount.id }, data: { ownerId: user.id } }).catch(() => {});
+            await prisma.contact.deleteMany({ where: { userId: userAccount.id } }).catch(() => {});
             await prisma.dailyReport.deleteMany({ where: { userId: userAccount.id } }).catch(() => {});
+            await prisma.checkIn.deleteMany({ where: { userId: userAccount.id } }).catch(() => {});
+            await prisma.teamMessage.deleteMany({
+                where: { OR: [{ senderEmail: userAccount.email }, { recipientEmail: userAccount.email }] }
+            }).catch(() => {});
             await prisma.user.delete({ where: { id: userAccount.id } }).catch(() => {});
         }
 

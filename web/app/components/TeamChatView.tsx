@@ -303,7 +303,7 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
                             <div className="h-full flex flex-col items-center justify-center text-center p-8 text-gray-500">
                                 <MessageSquare size={36} className="text-gray-600 mb-2" />
                                 <div className="text-sm font-bold text-white mb-1">
-                                    {activeDirectUser ? `Direct conversation with ${activeDirectUser.name}` : `Welcome to #${activeChannel}`}
+                                    {activeDirectUser ? `Direct conversation with ${activeDirectUser.name || activeDirectUser.email.split('@')[0]}` : `Welcome to #${activeChannel}`}
                                 </div>
                                 <p className="text-xs text-gray-400 max-w-sm">
                                     {activeDirectUser

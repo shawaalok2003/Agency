@@ -318,34 +318,54 @@ export async function authRoutes(server: FastifyInstance) {
         return user;
     });
 
-    // 7. Admin: Delete any User account (non-owner) and all their data
+    // 7. Admin: Delete any User or TeamMember account and clean up records
     server.delete('/auth/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const caller = (request as any).user;
         if (caller.role !== 'ADMIN' && caller.role !== 'OWNER') {
-            return reply.code(403).send({ error: 'Access denied: Only Company Admin can delete user accounts.' });
+            return reply.code(403).send({ error: 'Access denied: Only Company Admin can delete accounts.' });
         }
 
         const { id } = request.params as { id: string };
 
-        const target = await prisma.user.findUnique({ where: { id } });
-        if (!target) return reply.code(404).send({ error: 'User not found' });
+        // 1. Try finding in User model
+        const targetUser = await prisma.user.findUnique({ where: { id } });
+        if (targetUser) {
+            if (targetUser.id === caller.id) {
+                return reply.code(400).send({ error: 'You cannot delete your own account.' });
+            }
 
-        if (target.role === 'OWNER') {
-            return reply.code(403).send({ error: 'Cannot delete the primary Owner account.' });
+            // Reassign any projects / leads to the caller to prevent foreign-key failure or lost data
+            await prisma.project.updateMany({ where: { userId: targetUser.id }, data: { userId: caller.id } }).catch(() => {});
+            await prisma.lead.updateMany({ where: { ownerId: targetUser.id }, data: { ownerId: caller.id } }).catch(() => {});
+            await prisma.contact.deleteMany({ where: { userId: targetUser.id } }).catch(() => {});
+            await prisma.dailyReport.deleteMany({ where: { userId: targetUser.id } }).catch(() => {});
+            await prisma.checkIn.deleteMany({ where: { userId: targetUser.id } }).catch(() => {});
+            await prisma.teamMessage.deleteMany({
+                where: { OR: [{ senderEmail: targetUser.email }, { recipientEmail: targetUser.email }] }
+            }).catch(() => {});
+            await prisma.teamMember.deleteMany({ where: { email: targetUser.email } }).catch(() => {});
+            await prisma.user.delete({ where: { id: targetUser.id } });
+
+            return { success: true, message: `Account ${targetUser.name || targetUser.email} removed permanently.` };
         }
 
-        if (target.id === caller.id) {
-            return reply.code(400).send({ error: 'You cannot delete your own account.' });
+        // 2. Fallback: Try finding in TeamMember model
+        const targetMember = await prisma.teamMember.findUnique({ where: { id } });
+        if (targetMember) {
+            const memberEmail = targetMember.email.toLowerCase().trim();
+            await prisma.teamMember.delete({ where: { id } }).catch(() => {});
+            const linkedUser = await prisma.user.findUnique({ where: { email: memberEmail } });
+            if (linkedUser && linkedUser.id !== caller.id) {
+                await prisma.project.updateMany({ where: { userId: linkedUser.id }, data: { userId: caller.id } }).catch(() => {});
+                await prisma.lead.updateMany({ where: { ownerId: linkedUser.id }, data: { ownerId: caller.id } }).catch(() => {});
+                await prisma.dailyReport.deleteMany({ where: { userId: linkedUser.id } }).catch(() => {});
+                await prisma.checkIn.deleteMany({ where: { userId: linkedUser.id } }).catch(() => {});
+                await prisma.user.delete({ where: { id: linkedUser.id } }).catch(() => {});
+            }
+            return { success: true, message: `Team member ${targetMember.name || targetMember.email} removed permanently.` };
         }
 
-        // Cascade delete associated records
-        await prisma.dailyReport.deleteMany({ where: { userId: id } }).catch(() => {});
-        await prisma.lead.deleteMany({ where: { ownerId: id } }).catch(() => {});
-        await prisma.contact.deleteMany({ where: { userId: id } }).catch(() => {});
-        await prisma.teamMember.deleteMany({ where: { email: target.email } }).catch(() => {});
-        await prisma.user.delete({ where: { id } });
-
-        return { success: true, message: `User ${target.name || target.email} removed permanently.` };
+        return reply.code(404).send({ error: 'User or team member not found' });
     });
 
     // 8. Admin: List all users in the same company
