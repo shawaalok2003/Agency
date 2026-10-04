@@ -2363,9 +2363,9 @@ export default function Dashboard() {
 
             {/* Dynamic Real Action Modals */}
             {modalType && (
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-[#0a0f1d] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative animate-in fade-in zoom-in-95">
-                        <div className="flex justify-between items-center mb-5 pb-3 border-b border-white/[0.08]">
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+                    <div className="bg-[#0a0f1d] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative animate-in fade-in zoom-in-95 flex flex-col max-h-[90vh] overflow-hidden">
+                        <div className="flex justify-between items-center p-5 pb-4 border-b border-white/[0.08] shrink-0">
                             <h3 className="text-base font-bold text-white">
                                 {modalType === 'payment'
                                     ? 'Record Client Payment'
@@ -2373,12 +2373,13 @@ export default function Dashboard() {
                                         ? (editingTeamMember ? 'Edit Staff Member' : 'Add Team Member / Sales Rep')
                                         : `Add ${modalType ? modalType.charAt(0).toUpperCase() + modalType.slice(1) : ''}`}
                             </h3>
-                            <button onClick={() => setModalType(null)} className="text-gray-400 hover:text-white">
+                            <button onClick={() => setModalType(null)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10">
                                 <X size={18} />
                             </button>
                         </div>
 
-                        <form onSubmit={modalType === 'payment' ? handleRecordPayment : handleGenericSubmit} className="space-y-4">
+                        <form onSubmit={modalType === 'payment' ? handleRecordPayment : handleGenericSubmit} className="flex flex-col flex-1 overflow-hidden">
+                            <div className="p-5 overflow-y-auto space-y-4 flex-1 custom-scrollbar">
                             {modalType === 'project' && (
                                 <>
                                     <div>
@@ -2805,18 +2806,21 @@ export default function Dashboard() {
                                 </>
                             )}
 
-                            <div className="pt-4 flex justify-end gap-2">
+                            </div>
+
+                            {/* Sticky Modal Action Footer */}
+                            <div className="p-4 px-5 border-t border-white/[0.08] bg-[#070b16] flex justify-end gap-3 shrink-0 rounded-b-2xl">
                                 <button
                                     type="button"
                                     onClick={() => setModalType(null)}
-                                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white"
+                                    className="px-4 py-2 rounded-xl text-xs font-bold text-gray-400 hover:text-white transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 disabled:opacity-50"
+                                    className="px-6 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 disabled:opacity-50 transition-all active:scale-95 flex items-center gap-1.5"
                                 >
                                     {submitting
                                         ? 'Saving...'
