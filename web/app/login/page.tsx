@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/src/api/client';
 import {
-    ArrowRight, Lock, Mail, KeyRound, CheckCircle2,
-    RefreshCw, ArrowLeft, ShieldCheck, Globe, ArrowUpRight,
-    Sparkles, Check, Layers, BarChart3, Zap
+    ArrowRight, Lock, Mail, CheckCircle2,
+    ArrowLeft, Globe, ArrowUpRight,
+    Sparkles, Layers, BarChart3, Zap
 } from 'lucide-react';
 
 export default function Login() {
@@ -15,26 +15,12 @@ export default function Login() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [otp, setOtp] = useState('');
-    const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
-    const [devOtp, setDevOtp] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [resending, setResending] = useState(false);
-    const [resendCooldown, setResendCooldown] = useState(0);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
-    useEffect(() => {
-        if (resendCooldown <= 0) return;
-        const timer = setTimeout(() => {
-            setResendCooldown(prev => prev - 1);
-        }, 1000);
-        return () => clearTimeout(timer);
-    }, [resendCooldown]);
-
-    // Send OTP for Sign Up
-    const handleSendSignupOtp = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault();
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         setError('');
         setSuccessMessage('');
 
@@ -43,154 +29,40 @@ export default function Login() {
             return;
         }
 
-        if (password.length < 8) {
+        if (!isLogin && password.length < 8) {
             setError('Password must be at least 8 characters.');
             return;
         }
 
         setLoading(true);
         try {
-            const { data } = await api.post('/auth/send-otp', { email });
-            setStep('otp');
-            setResendCooldown(30);
-            setSuccessMessage(data.message || `Verification code sent to ${email}`);
-            if (data.devOtp) {
-                setDevOtp(data.devOtp);
+            const endpoint = isLogin ? '/auth/login' : '/auth/register';
+            const payload = isLogin 
+                ? { email: email.trim().toLowerCase(), password } 
+                : { email: email.trim().toLowerCase(), password, role: 'OWNER' };
+            
+            const { data } = await api.post(endpoint, payload);
+
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+                setSuccessMessage(isLogin ? 'Login successful! Redirecting...' : 'Account created! Redirecting to workspace...');
+                setTimeout(() => {
+                    router.push('/');
+                }, 300);
+            } else {
+                setError('Authentication failed. No access token received.');
             }
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to send verification code. Please try again.');
+            setError(err.response?.data?.error || (isLogin ? 'Invalid email or password' : 'Registration failed. Please try again.'));
         } finally {
             setLoading(false);
         }
     };
 
-    // Resend OTP for either Log In or Sign Up
-    const handleResendOtp = async () => {
-        setError('');
-        setResending(true);
-        try {
-            if (isLogin) {
-                // For login, trigger a fresh login OTP dispatch
-                const { data } = await api.post('/auth/login', {
-                    email,
-                    password,
-                });
-                setSuccessMessage(`New security code sent to ${email}`);
-                setResendCooldown(30);
-                if (data.devOtp) {
-                    setDevOtp(data.devOtp);
-                }
-            } else {
-                // For signup, trigger a fresh signup OTP dispatch
-                const { data } = await api.post('/auth/send-otp', { email });
-                setSuccessMessage(`New verification code sent to ${email}`);
-                setResendCooldown(30);
-                if (data.devOtp) {
-                    setDevOtp(data.devOtp);
-                }
-            }
-        } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to resend code.');
-        } finally {
-            setResending(false);
-        }
-    };
-
-    // Unified Form Submit Handler
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setSuccessMessage('');
-
-        if (isLogin) {
-            // LOGIN FLOW
-            if (step === 'credentials') {
-                // Step 1: Submit credentials to trigger 2FA OTP
-                setLoading(true);
-                try {
-                    const { data } = await api.post('/auth/login', {
-                        email,
-                        password,
-                    });
-
-                    if (data.requireOtp) {
-                        setStep('otp');
-                        setResendCooldown(30);
-                        setSuccessMessage(data.message || `Security verification code sent to ${email}`);
-                        if (data.devOtp) {
-                            setDevOtp(data.devOtp);
-                        }
-                    } else if (data.token) {
-                        // Direct token fallback if OTP wasn't requested
-                        localStorage.setItem('token', data.token);
-                        router.push('/');
-                    }
-                } catch (err: any) {
-                    setError(err.response?.data?.error || 'Invalid email or password');
-                } finally {
-                    setLoading(false);
-                }
-            } else {
-                // Step 2: Submit credentials + OTP to verify & log in
-                if (!otp || otp.trim().length !== 6) {
-                    setError('Please enter the 6-digit security code.');
-                    return;
-                }
-
-                setLoading(true);
-                try {
-                    const { data } = await api.post('/auth/login', {
-                        email,
-                        password,
-                        otp: otp.trim(),
-                    });
-
-                    localStorage.setItem('token', data.token);
-                    router.push('/');
-                } catch (err: any) {
-                    setError(err.response?.data?.error || 'Login verification failed');
-                } finally {
-                    setLoading(false);
-                }
-            }
-        } else {
-            // SIGN UP FLOW
-            if (step === 'credentials') {
-                // Step 1: Validate password & request OTP
-                await handleSendSignupOtp();
-            } else {
-                // Step 2: Submit email, password, and OTP to register
-                if (!otp || otp.trim().length !== 6) {
-                    setError('Please enter the 6-digit verification code.');
-                    return;
-                }
-
-                setLoading(true);
-                try {
-                    const { data } = await api.post('/auth/register', {
-                        email,
-                        password,
-                        otp: otp.trim(),
-                    });
-
-                    localStorage.setItem('token', data.token);
-                    router.push('/');
-                } catch (err: any) {
-                    setError(err.response?.data?.error || 'Registration failed');
-                } finally {
-                    setLoading(false);
-                }
-            }
-        }
-    };
-
     const toggleMode = () => {
         setIsLogin(!isLogin);
-        setStep('credentials');
         setError('');
         setSuccessMessage('');
-        setDevOtp(null);
-        setOtp('');
     };
 
     return (
@@ -293,7 +165,7 @@ export default function Login() {
             </div>
 
             {/* ============================================================ */}
-            {/* RIGHT SIDE: Authentication Form (Log In & Sign Up with OTP) */}
+            {/* RIGHT SIDE: Authentication Form (Direct Sign In & Sign Up) */}
             {/* ============================================================ */}
             <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-12 lg:p-14 relative bg-[#030712] overflow-y-auto">
                 {/* Right Top Bar: Mobile Logo & "Go to Website" link */}
@@ -329,16 +201,12 @@ export default function Login() {
                             className="h-12 w-auto mx-auto mb-4 object-contain rounded-xl border border-white/10 shadow-xl shadow-indigo-500/20"
                         />
                         <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mb-2">
-                            {step === 'otp'
-                                ? (isLogin ? 'Two-Factor Verification' : 'Verify Your Email')
-                                : (isLogin ? 'Welcome back' : 'Create an account')}
+                            {isLogin ? 'Welcome back' : 'Create your account'}
                         </h1>
                         <p className="text-gray-400 text-sm">
-                            {step === 'otp'
-                                ? `Enter the 6-digit security code sent to ${email}`
-                                : (isLogin
-                                    ? 'Enter your credentials to receive your security OTP'
-                                    : 'Start your agency journey with verified email security')}
+                            {isLogin
+                                ? 'Enter your credentials to access your agency workspace'
+                                : 'Start your 14-day free trial with full Pro access'}
                         </p>
                     </div>
 
@@ -357,118 +225,48 @@ export default function Login() {
                         </div>
                     )}
 
-                    {process.env.NODE_ENV !== 'production' && devOtp && (
-                        <div className="bg-indigo-500/15 text-indigo-300 p-3.5 rounded-xl mb-5 text-xs flex items-center justify-between border border-indigo-500/30">
-                            <div>
-                                <span className="font-bold">Dev Simulation Mode:</span> OTP is{' '}
-                                <span className="font-mono font-bold text-white tracking-widest text-sm bg-white/10 px-1.5 py-0.5 rounded">{devOtp}</span>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setOtp(devOtp)}
-                                className="text-[11px] underline hover:text-white font-semibold"
-                            >
-                                Auto-fill
-                            </button>
-                        </div>
-                    )}
-
                     <form onSubmit={handleSubmit} className="space-y-4">
-                        {/* Step 1: Credentials (Email & Password) */}
-                        {step === 'credentials' && (
-                            <>
-                                <div>
-                                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5 ml-1">
-                                        Work Email
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="email"
-                                            value={email}
-                                            onChange={(e) => setEmail(e.target.value)}
-                                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl p-3.5 pl-10 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm"
-                                            placeholder="you@agnecyos.io"
-                                            required
-                                        />
-                                        <Mail size={18} className="absolute left-3.5 top-3.5 text-gray-400" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5 ml-1">
-                                        Password
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl p-3.5 pl-10 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm"
-                                            placeholder="••••••••"
-                                            required
-                                            minLength={isLogin ? 1 : 8}
-                                        />
-                                        <Lock size={18} className="absolute left-3.5 top-3.5 text-gray-400" />
-                                    </div>
-                                    {!isLogin && (
-                                        <span className="text-[11px] text-gray-500 ml-1 mt-1 block">
-                                            Password must be at least 8 characters
-                                        </span>
-                                    )}
-                                </div>
-                            </>
-                        )}
-
-                        {/* Step 2: OTP Verification (Both for Log In and Sign Up) */}
-                        {step === 'otp' && (
-                            <div className="space-y-4">
-                                <div>
-                                    <div className="flex items-center justify-between mb-1.5 ml-1">
-                                        <label className="text-xs font-semibold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-                                            <ShieldCheck size={14} className="text-indigo-400" />
-                                            6-Digit OTP Code
-                                        </label>
-                                        <span className="text-[11px] text-gray-400">Expires in 10 min</span>
-                                    </div>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            maxLength={6}
-                                            value={otp}
-                                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                                            className="w-full bg-white/[0.05] border border-indigo-500/50 rounded-xl p-3.5 pl-10 text-white text-center font-mono text-xl tracking-[0.5em] placeholder-gray-600 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all shadow-inner"
-                                            placeholder="000000"
-                                            autoFocus
-                                            required
-                                        />
-                                        <KeyRound size={18} className="absolute left-3.5 top-3.5 text-indigo-400" />
-                                    </div>
-                                    <div className="flex items-center justify-between mt-2.5 px-1 text-xs">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setStep('credentials');
-                                                setError('');
-                                                setSuccessMessage('');
-                                            }}
-                                            className="text-gray-400 hover:text-white flex items-center gap-1 font-medium transition-colors"
-                                        >
-                                            <ArrowLeft size={12} /> Edit Email / Password
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleResendOtp}
-                                            disabled={resending || resendCooldown > 0}
-                                            className={`flex items-center gap-1 font-semibold transition-colors ${
-                                                resendCooldown > 0 ? 'text-gray-500 cursor-not-allowed' : 'text-indigo-400 hover:text-indigo-300'
-                                            }`}
-                                        >
-                                            <RefreshCw size={12} className={resending ? 'animate-spin' : ''} />
-                                            {resending ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
-                                        </button>
-                                    </div>
-                                </div>
+                        <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5 ml-1">
+                                Work Email
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-white/[0.04] border border-white/10 rounded-xl p-3.5 pl-10 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm"
+                                    placeholder="you@agnecyos.io"
+                                    required
+                                />
+                                <Mail size={18} className="absolute left-3.5 top-3.5 text-gray-400" />
                             </div>
-                        )}
+                        </div>
+
+                        <div>
+                            <div className="flex items-center justify-between mb-1.5 ml-1">
+                                <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400">
+                                    Password
+                                </label>
+                            </div>
+                            <div className="relative">
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full bg-white/[0.04] border border-white/10 rounded-xl p-3.5 pl-10 text-white placeholder-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm"
+                                    placeholder="••••••••"
+                                    required
+                                    minLength={isLogin ? 1 : 8}
+                                />
+                                <Lock size={18} className="absolute left-3.5 top-3.5 text-gray-400" />
+                            </div>
+                            {!isLogin && (
+                                <span className="text-[11px] text-gray-500 ml-1 mt-1 block">
+                                    Password must be at least 8 characters
+                                </span>
+                            )}
+                        </div>
 
                         <button
                             type="submit"
@@ -477,10 +275,8 @@ export default function Login() {
                         >
                             {loading ? (
                                 'Processing...'
-                            ) : step === 'credentials' ? (
-                                isLogin ? 'Sign In & Request OTP' : 'Continue & Send OTP'
                             ) : (
-                                isLogin ? 'Verify & Sign In' : 'Verify & Complete Registration'
+                                isLogin ? 'Sign In' : 'Create Account'
                             )}
                             {!loading && <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />}
                         </button>

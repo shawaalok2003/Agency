@@ -12,13 +12,11 @@ const emailService_1 = require("../services/emailService");
 const registerSchema = zod_1.z.object({
     email: zod_1.z.string().email(),
     password: zod_1.z.string().min(8),
-    otp: zod_1.z.string().min(6).max(6, '6-digit OTP code is required'),
     role: zod_1.z.enum(['OWNER', 'TEAM_MEMBER']).default('OWNER'),
 });
 const loginSchema = zod_1.z.object({
     email: zod_1.z.string().email(),
     password: zod_1.z.string(),
-    otp: zod_1.z.string().min(6).max(6).optional(),
 });
 async function authRoutes(server) {
     // 1. Send OTP to email for registration / verification
@@ -93,28 +91,11 @@ async function authRoutes(server) {
         if (!result.success) {
             return reply.code(400).send({ error: result.error.errors[0]?.message || 'Invalid input data' });
         }
-        const { email, password, role, otp } = result.data;
+        const { email, password, role } = result.data;
         const normalizedEmail = email.toLowerCase().trim();
         const existingUser = await index_1.prisma.user.findUnique({ where: { email: normalizedEmail } });
         if (existingUser) {
             return reply.code(400).send({ error: 'An account with this email already exists' });
-        }
-        // Verify OTP if submitted
-        if (otp) {
-            const validOtp = await index_1.prisma.otpVerification.findFirst({
-                where: {
-                    email: normalizedEmail,
-                    otp: otp.trim(),
-                    expiresAt: { gt: new Date() }
-                }
-            });
-            if (!validOtp) {
-                return reply.code(400).send({ error: 'Invalid or expired OTP verification code.' });
-            }
-            // Clean up used OTP
-            await index_1.prisma.otpVerification.deleteMany({
-                where: { email: normalizedEmail }
-            });
         }
         const hashedPassword = await bcryptjs_1.default.hash(password, 10);
         const trialDate = new Date();
@@ -145,13 +126,13 @@ async function authRoutes(server) {
         const token = (0, auth_1.signToken)({ id: user.id, email: user.email, role: user.role });
         return { token, user: { id: user.id, email: user.email, role: user.role } };
     });
-    // 4. User Login (Two-Factor OTP Required)
+    // 4. User Login (Direct Email & Password - No OTP Required)
     server.post('/auth/login', async (request, reply) => {
         const result = loginSchema.safeParse(request.body);
         if (!result.success) {
             return reply.code(400).send({ error: result.error });
         }
-        const { email, password, otp } = result.data;
+        const { email, password } = result.data;
         const normalizedEmail = email.toLowerCase().trim();
         const user = await index_1.prisma.user.findUnique({ where: { email: normalizedEmail } });
         if (!user) {
@@ -161,45 +142,6 @@ async function authRoutes(server) {
         if (!valid) {
             return reply.code(401).send({ error: 'Invalid email or password' });
         }
-        // If OTP is not provided, send 2FA OTP code to user's email
-        if (!otp) {
-            const loginOtp = Math.floor(100000 + Math.random() * 900000).toString();
-            const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-            await index_1.prisma.otpVerification.deleteMany({ where: { email: normalizedEmail } });
-            await index_1.prisma.otpVerification.create({
-                data: {
-                    email: normalizedEmail,
-                    otp: loginOtp,
-                    expiresAt,
-                }
-            });
-            console.log(`\n========================================================\n🔑 [AGNECYOS 2FA LOGIN CODE FOR ${normalizedEmail}]: ${loginOtp}\n========================================================\n`);
-            // Dispatch Email via HTTPS / SMTP
-            const emailResult = await (0, emailService_1.sendOtpEmail)(normalizedEmail, loginOtp);
-            if (!emailResult.success) {
-                console.warn(`[Login OTP Warning]: Cloud host delivery issue (${emailResult.error}). Code logged above.`);
-            }
-            return reply.code(200).send({
-                requireOtp: true,
-                email: normalizedEmail,
-                message: `Security verification code sent to ${normalizedEmail}`,
-                simulated: false,
-                devOtp: (process.env.NODE_ENV !== 'production') ? loginOtp : undefined
-            });
-        }
-        // Verify submitted OTP
-        const validOtp = await index_1.prisma.otpVerification.findFirst({
-            where: {
-                email: normalizedEmail,
-                otp: otp.trim(),
-                expiresAt: { gt: new Date() }
-            }
-        });
-        if (!validOtp) {
-            return reply.code(400).send({ error: 'Invalid or expired OTP verification code. Please check your email or request a new code.' });
-        }
-        // Delete used OTP
-        await index_1.prisma.otpVerification.deleteMany({ where: { email: normalizedEmail } });
         const token = (0, auth_1.signToken)({ id: user.id, email: user.email, role: user.role });
         return { token, user: { id: user.id, email: user.email, role: user.role } };
     });
