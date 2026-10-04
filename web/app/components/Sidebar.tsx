@@ -7,6 +7,7 @@ import {
     LayoutGrid, Briefcase, CheckSquare, Calendar, Target,
     FileText, Users, ExternalLink, Receipt, CreditCard,
     TrendingUp, UserCheck, Clock, BarChart3, Settings,
+    MessageSquare, ClipboardList, Flame, Building2,
     Zap, Menu, X, LogOut, ChevronRight, ShieldCheck, Sparkles, ArrowLeft
 } from 'lucide-react';
 import { api } from '@/src/api/client';
@@ -49,7 +50,32 @@ export default function Sidebar({
         ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / (1000 * 3600 * 24)))
         : 0;
 
-    const navSections = [
+    const userRole = (user?.role || 'OWNER').toUpperCase();
+    const isSales = userRole === 'SALES';
+
+    const navSections = isSales ? [
+        {
+            title: 'SALES WORKSPACE',
+            items: [
+                { id: 'sales_dashboard', label: 'Sales Dashboard', icon: TrendingUp },
+                { id: 'leads', label: 'My Leads Pipeline', icon: Target, badge: counts.leads },
+                { id: 'daily_tracker', label: 'Daily Task Tracker', icon: CheckSquare },
+            ]
+        },
+        {
+            title: 'TEAM & COLLABORATION',
+            items: [
+                { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
+                { id: 'team', label: 'Company Directory', icon: Users, badge: counts.team },
+            ]
+        },
+        {
+            title: 'ACCOUNT',
+            items: [
+                { id: 'settings', label: 'My Profile & Work', icon: Settings },
+            ]
+        }
+    ] : [
         {
             title: 'WORKSPACE',
             items: [
@@ -62,6 +88,7 @@ export default function Sidebar({
         {
             title: 'SALES & CRM',
             items: [
+                { id: 'sales_dashboard', label: 'Sales Dashboard', icon: TrendingUp },
                 { id: 'leads', label: 'Leads Pipeline', icon: Target, badge: counts.leads },
                 { id: 'proposals', label: 'Proposals', icon: FileText },
             ]
@@ -82,16 +109,18 @@ export default function Sidebar({
             ]
         },
         {
-            title: 'TEAM & OPERATIONS',
+            title: 'TEAM & DEPARTMENTS',
             items: [
-                { id: 'team', label: 'Team & Sales Workspace', icon: UserCheck, badge: counts.team },
+                { id: 'team', label: 'Team Management', icon: UserCheck, badge: counts.team },
+                { id: 'daily_reports_feed', label: 'Daily Task Trackers', icon: ClipboardList },
+                { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
                 { id: 'approvals', label: 'Client Approvals', icon: Clock, badge: counts.approvals },
             ]
         },
         {
             title: 'SYSTEM',
             items: [
-                { id: 'settings', label: 'Settings', icon: Settings },
+                { id: 'settings', label: 'Settings & Company', icon: Settings },
             ]
         }
     ];
@@ -322,16 +351,24 @@ export default function Sidebar({
 
                     {/* User Profile Bar */}
                     {user && (
-                        <div className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/[0.04] transition-colors group">
-                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-800 flex items-center justify-center text-xs font-bold text-white shadow-md border border-white/10 shrink-0">
-                                {(user.email || 'A').charAt(0).toUpperCase()}
+                        <div className="flex items-center gap-3 px-2 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.06] transition-colors group">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-800 flex items-center justify-center text-sm font-bold text-white shadow-md border border-white/10 shrink-0">
+                                {(user.name || user.email || 'A').charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
-                                <div className="text-xs font-semibold text-gray-200 truncate">
-                                    {(user.email || 'agency@agnecyos.io').split('@')[0]}
+                                <div className="text-xs font-bold text-white truncate flex items-center gap-1.5">
+                                    <span>{user.name || (user.email || 'user').split('@')[0]}</span>
                                 </div>
-                                <div className="text-[10px] text-gray-500 font-medium capitalize">
-                                    {user.role ? user.role.toLowerCase().replace('_', ' ') : 'Agency Owner'}
+                                <div className="text-[10px] text-indigo-400 font-semibold truncate flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                                    <span>{user.companyName || 'dhandaeasy'}</span>
+                                    <span>•</span>
+                                    <span className="uppercase text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300">
+                                        {user.role || 'ADMIN'}
+                                    </span>
+                                </div>
+                                <div className="text-[9px] text-gray-500 truncate font-mono">
+                                    {user.email}
                                 </div>
                             </div>
                             <button

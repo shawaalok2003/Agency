@@ -10,14 +10,31 @@ const createLeadSchema = z.object({
     email: z.string().email().optional(),
     value: z.number().optional(),
     status: z.enum(['NEW', 'DISCUSSION', 'PROPOSAL', 'WON', 'LOST']).optional(),
+    assignedToEmail: z.string().optional(),
+    assignedToName: z.string().optional(),
+    priority: z.string().optional(),
+    notes: z.string().optional(),
 });
 
 export async function leadRoutes(server: FastifyInstance) {
-    // GET ALL LEADS
+    // GET ALL LEADS (Admin sees all; Sales rep sees assigned or own)
     server.get('/leads', { preHandler: [authenticate] }, async (request, reply) => {
-        const userId = (request as any).user.id;
+        const user = (request as any).user;
+        const isAdmin = user.role === 'ADMIN' || user.role === 'OWNER';
+
+        let where: any = {};
+        if (!isAdmin) {
+            // Sales sees leads assigned to them or created by them
+            where = {
+                OR: [
+                    { ownerId: user.id },
+                    { assignedToEmail: user.email }
+                ]
+            };
+        }
+
         const leads = await prisma.lead.findMany({
-            where: { ownerId: userId },
+            where,
             orderBy: { createdAt: 'desc' }
         });
         return leads;
@@ -33,14 +50,31 @@ export async function leadRoutes(server: FastifyInstance) {
             return reply.code(400).send({ error: result.error });
         }
 
+        const assignedToEmail = result.data.assignedToEmail || (user.role === 'SALES' ? user.email : undefined);
+        const assignedToName = result.data.assignedToName || (user.role === 'SALES' ? (user.name || user.email) : undefined);
+
         const lead = await prisma.lead.create({
             data: {
-                ...result.data,
-                ownerId: userId,
+                name: result.data.name,
+                company: result.data.company,
+                email: result.data.email,
+                value: result.data.value || 0,
                 status: result.data.status || 'NEW',
-                value: result.data.value || 0
+                assignedToEmail,
+                assignedToName,
+                priority: result.data.priority || 'MEDIUM',
+                notes: result.data.notes || null,
+                ownerId: userId,
             }
         });
+
+        // Increment team member assigned leads count
+        if (assignedToEmail) {
+            prisma.teamMember.updateMany({
+                where: { email: assignedToEmail },
+                data: { leadsAssigned: { increment: 1 } }
+            }).catch(e => console.error(e));
+        }
 
         if (user?.email) {
             sendProcessUpdateEmail({
@@ -52,10 +86,11 @@ export async function leadRoutes(server: FastifyInstance) {
                     { label: 'Lead Name', value: lead.name },
                     { label: 'Company', value: lead.company || 'N/A' },
                     { label: 'Deal Value', value: `₹${Number(lead.value).toLocaleString('en-IN')}` },
+                    { label: 'Assigned To', value: lead.assignedToName || 'Unassigned' },
                     { label: 'Pipeline Stage', value: lead.status }
                 ],
                 actionText: 'View in Sales Pipeline',
-                actionUrl: 'http://localhost:3000/?view=pipeline'
+                actionUrl: 'https://www.agnecyos.in/?view=pipeline'
             }).catch(err => console.error('[Email Notification Error]', err));
         }
 
@@ -73,6 +108,17 @@ export async function leadRoutes(server: FastifyInstance) {
             data: { status: status as any }
         });
 
+        // If won, update sales stats
+        if (status === 'WON' && lead.assignedToEmail) {
+            prisma.teamMember.updateMany({
+                where: { email: lead.assignedToEmail },
+                data: {
+                    dealsClosed: { increment: 1 },
+                    revenueGenerated: { increment: lead.value || 0 }
+                }
+            }).catch(e => console.error(e));
+        }
+
         if (user?.email) {
             sendProcessUpdateEmail({
                 to: user.email,
@@ -85,7 +131,7 @@ export async function leadRoutes(server: FastifyInstance) {
                     { label: 'Deal Value', value: `₹${Number(lead.value).toLocaleString('en-IN')}` }
                 ],
                 actionText: 'View Pipeline',
-                actionUrl: 'http://localhost:3000/?view=pipeline'
+                actionUrl: 'https://www.agnecyos.in/?view=pipeline'
             }).catch(err => console.error('[Email Notification Error]', err));
         }
 
@@ -107,6 +153,17 @@ export async function leadRoutes(server: FastifyInstance) {
             where: { id },
             data: { status: 'WON' }
         });
+
+        // Update sales rep metrics
+        if (lead.assignedToEmail) {
+            prisma.teamMember.updateMany({
+                where: { email: lead.assignedToEmail },
+                data: {
+                    dealsClosed: { increment: 1 },
+                    revenueGenerated: { increment: lead.value || 0 }
+                }
+            }).catch(e => console.error(e));
+        }
 
         // Create Project
         const project = await prisma.project.create({
@@ -131,7 +188,7 @@ export async function leadRoutes(server: FastifyInstance) {
                     { label: 'Project Status', value: project.status }
                 ],
                 actionText: 'Open New Project',
-                actionUrl: `http://localhost:3000/projects/${project.id}`
+                actionUrl: `https://www.agnecyos.in/projects/${project.id}`
             }).catch(err => console.error('[Email Notification Error]', err));
         }
 
@@ -141,11 +198,7 @@ export async function leadRoutes(server: FastifyInstance) {
     // UPDATE LEAD
     server.patch('/leads/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { id } = request.params as { id: string };
-        const userId = (request as any).user.id;
         const body = request.body as any;
-
-        const lead = await prisma.lead.findFirst({ where: { id, ownerId: userId } });
-        if (!lead) return reply.code(404).send({ error: 'Lead not found' });
 
         const updated = await prisma.lead.update({
             where: { id },
@@ -155,6 +208,10 @@ export async function leadRoutes(server: FastifyInstance) {
                 email: body.email !== undefined ? body.email : undefined,
                 value: body.value !== undefined ? body.value : undefined,
                 status: body.status !== undefined ? body.status : undefined,
+                assignedToEmail: body.assignedToEmail !== undefined ? body.assignedToEmail : undefined,
+                assignedToName: body.assignedToName !== undefined ? body.assignedToName : undefined,
+                priority: body.priority !== undefined ? body.priority : undefined,
+                notes: body.notes !== undefined ? body.notes : undefined,
             }
         });
         return updated;
@@ -163,10 +220,6 @@ export async function leadRoutes(server: FastifyInstance) {
     // DELETE LEAD
     server.delete('/leads/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { id } = request.params as { id: string };
-        const userId = (request as any).user.id;
-
-        const lead = await prisma.lead.findFirst({ where: { id, ownerId: userId } });
-        if (!lead) return reply.code(404).send({ error: 'Lead not found' });
 
         await prisma.lead.delete({ where: { id } });
         return { success: true };

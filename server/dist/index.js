@@ -18,6 +18,8 @@ const contacts_1 = require("./routes/contacts");
 const team_1 = require("./routes/team");
 const tasks_1 = require("./routes/tasks");
 const invoices_1 = require("./routes/invoices");
+const dailyReports_1 = require("./routes/dailyReports");
+const messages_1 = require("./routes/messages");
 const emailService_1 = require("./services/emailService");
 const buildServer = async () => {
     const server = (0, fastify_1.default)({
@@ -39,6 +41,8 @@ const buildServer = async () => {
     server.register(team_1.teamRoutes);
     server.register(tasks_1.taskRoutes);
     server.register(invoices_1.invoiceRoutes);
+    server.register(dailyReports_1.dailyReportRoutes);
+    server.register(messages_1.messageRoutes);
     server.get('/health', async () => {
         return { status: 'ok' };
     });

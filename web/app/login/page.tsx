@@ -45,7 +45,10 @@ export default function Login() {
 
             if (data.token) {
                 localStorage.setItem('token', data.token);
-                setSuccessMessage(isLogin ? 'Login successful! Redirecting...' : 'Account created! Redirecting to workspace...');
+                if (data.user) {
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                }
+                setSuccessMessage(isLogin ? 'Login successful! Redirecting to dashboard...' : 'Account created! Redirecting to workspace...');
                 setTimeout(() => {
                     router.push('/');
                 }, 300);

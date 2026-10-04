@@ -14,6 +14,8 @@ import { contactRoutes } from './routes/contacts';
 import { teamRoutes } from './routes/team';
 import { taskRoutes } from './routes/tasks';
 import { invoiceRoutes } from './routes/invoices';
+import { dailyReportRoutes } from './routes/dailyReports';
+import { messageRoutes } from './routes/messages';
 import { sendOtpEmail } from './services/emailService';
 
 const buildServer = async () => {
@@ -38,6 +40,8 @@ const buildServer = async () => {
     server.register(teamRoutes);
     server.register(taskRoutes);
     server.register(invoiceRoutes);
+    server.register(dailyReportRoutes);
+    server.register(messageRoutes);
 
     server.get('/health', async () => {
         return { status: 'ok' };

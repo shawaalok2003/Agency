@@ -14,6 +14,10 @@ import {
 } from 'lucide-react';
 import Sidebar from '@/app/components/Sidebar';
 import LandingPage from '@/app/components/LandingPage';
+import SalesDashboardView from '@/app/components/SalesDashboardView';
+import DailyTrackerView from '@/app/components/DailyTrackerView';
+import DailyReportsAdminFeed from '@/app/components/DailyReportsAdminFeed';
+import TeamChatView from '@/app/components/TeamChatView';
 
 // --- Interfaces ---
 interface Scope {
@@ -82,7 +86,10 @@ interface Project {
 interface User {
     id: string;
     email: string;
+    name?: string;
     role?: string;
+    companyName?: string;
+    department?: string;
     plan: 'FREE' | 'PRO';
     trialEndsAt: string | null;
 }
@@ -94,6 +101,10 @@ interface Lead {
     email?: string;
     value: string | number;
     status: 'NEW' | 'DISCUSSION' | 'PROPOSAL' | 'WON' | 'LOST';
+    assignedToEmail?: string;
+    assignedToName?: string;
+    priority?: string;
+    notes?: string;
     ownerId?: string;
     createdAt?: string;
 }
@@ -140,7 +151,21 @@ export function formatCompactINR(amount: number | string): string {
 
 export default function Dashboard() {
     const router = useRouter();
-    const [activeView, setActiveView] = useState('dashboard');
+    const [activeView, setActiveView] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const viewParam = params.get('view');
+            if (viewParam) return viewParam;
+            const savedUser = localStorage.getItem('user');
+            if (savedUser) {
+                try {
+                    const parsed = JSON.parse(savedUser);
+                    if (parsed.role === 'SALES') return 'sales_dashboard';
+                } catch (e) {}
+            }
+        }
+        return 'dashboard';
+    });
     const [loading, setLoading] = useState(true);
     const [showLanding, setShowLanding] = useState(false);
 
@@ -197,7 +222,11 @@ export default function Dashboard() {
 
         try {
             const userRes = await api.get('/auth/me');
-            setUser(userRes.data);
+            const currentUser = userRes.data;
+            setUser(currentUser);
+            if (currentUser?.role === 'SALES') {
+                setActiveView(prev => (prev === 'dashboard' ? 'sales_dashboard' : prev));
+            }
             await refreshAllData();
         } catch (err: any) {
             if (err.response?.status === 401) {
@@ -563,7 +592,20 @@ export default function Dashboard() {
                 if (editingTeamMember) {
                     await api.patch(`/team/${editingTeamMember.id}`, payload);
                 } else {
-                    await api.post('/team', payload);
+                    if (formData.password) {
+                        const targetRole = (formData.department === 'SALES' ? 'SALES' : (formData.role?.toUpperCase().includes('DEV') ? 'DEVELOPER' : 'TEAM_MEMBER'));
+                        await api.post('/auth/create-team-user', {
+                            name: formData.name,
+                            email: formData.email,
+                            password: formData.password,
+                            role: targetRole,
+                            department: formData.department || 'SALES',
+                            phone: formData.phone || undefined
+                        });
+                        alert(`✅ Team Member Account Created!\n\nLogin Email: ${formData.email}\nPassword: ${formData.password}\nDepartment: ${formData.department || 'SALES'}\n\nThey can now sign in at the login page and access their role dashboard.`);
+                    } else {
+                        await api.post('/team', payload);
+                    }
                 }
                 setEditingTeamMember(null);
             }
@@ -1578,6 +1620,36 @@ export default function Dashboard() {
 
                 {activeView === 'dashboard' && <DashboardOverview />}
 
+                {activeView === 'sales_dashboard' && (
+                    <SalesDashboardView
+                        user={user}
+                        leads={leads}
+                        onRefresh={refreshAllData}
+                        onViewChange={setActiveView}
+                        onCreateLead={() => setModalType('lead')}
+                    />
+                )}
+
+                {activeView === 'daily_tracker' && (
+                    <DailyTrackerView
+                        user={user}
+                        onViewChange={setActiveView}
+                    />
+                )}
+
+                {activeView === 'daily_reports_feed' && (
+                    <DailyReportsAdminFeed
+                        user={user}
+                        onViewChange={setActiveView}
+                    />
+                )}
+
+                {activeView === 'team_chat' && (
+                    <TeamChatView
+                        user={user}
+                    />
+                )}
+
                 {activeView === 'projects' && (
                     <div className="space-y-6">
                         <TopNavBar title="Projects" subtitle="Active client projects, scopes of work, and team deliverables." />
@@ -2437,7 +2509,7 @@ export default function Dashboard() {
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         <div>
-                                            <label className="text-xs text-gray-400 block mb-1">Work Email *</label>
+                                            <label className="text-xs text-gray-400 block mb-1">Work Email (Login ID) *</label>
                                             <input
                                                 required
                                                 type="email"
@@ -2458,6 +2530,38 @@ export default function Dashboard() {
                                             />
                                         </div>
                                     </div>
+
+                                    {!editingTeamMember && (
+                                        <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                                                    <ShieldCheck size={14} className="text-indigo-400" />
+                                                    <span>Member Login Password *</span>
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const randomPass = 'Team@' + Math.floor(1000 + Math.random() * 9000);
+                                                        setFormData({ ...formData, password: randomPass });
+                                                    }}
+                                                    className="text-[10px] text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2 py-0.5 rounded border border-indigo-500/30 transition-colors"
+                                                >
+                                                    + Generate Password
+                                                </button>
+                                            </div>
+                                            <input
+                                                required
+                                                type="text"
+                                                placeholder="e.g. Sales@2026!"
+                                                value={formData.password || ''}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-400"
+                                            />
+                                            <p className="text-[10px] text-gray-400">
+                                                Admin creates the login credentials. The team member logs in at <span className="text-indigo-300 font-mono">/login</span> with this email and password.
+                                            </p>
+                                        </div>
+                                    )}
 
                                     {/* Sales Performance Inputs (if Sales department) */}
                                     {(formData.department || 'SALES') === 'SALES' && (
