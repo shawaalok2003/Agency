@@ -9,7 +9,8 @@ import {
     Search, Calendar, CreditCard, ChevronRight, CheckCircle, FileText,
     Star, Trash2, Clock, TrendingUp, CheckSquare, ShieldCheck,
     ArrowUpRight, Bell, Sparkles, Download, ExternalLink, X, Command,
-    AlertCircle, FolderPlus, UserCheck, Edit3, ArrowRight, ArrowLeft
+    AlertCircle, FolderPlus, UserCheck, Edit3, ArrowRight, ArrowLeft,
+    Phone, Mail, MessageSquare, Award, Flame, UserPlus, Filter, MoreVertical
 } from 'lucide-react';
 import Sidebar from '@/app/components/Sidebar';
 import LandingPage from '@/app/components/LandingPage';
@@ -111,8 +112,16 @@ interface TeamMember {
     name: string;
     role: string;
     email: string;
+    avatarUrl?: string;
+    department?: string; // 'SALES' | 'OPERATIONS' | 'DEVELOPMENT' | 'DESIGN' | 'MANAGEMENT'
+    phone?: string;
+    status?: 'ACTIVE' | 'INVITED' | 'ON_LEAVE';
     projectsCount?: number;
-    rating?: string;
+    leadsAssigned?: number;
+    dealsClosed?: number;
+    revenueGenerated?: number | string;
+    rating?: string | number;
+    createdAt?: string;
 }
 
 // Format Currency to Indian Rupee (INR ₹)
@@ -153,6 +162,9 @@ export default function Dashboard() {
     const [formData, setFormData] = useState<any>({});
     const [submitting, setSubmitting] = useState(false);
     const [invoiceFilter, setInvoiceFilter] = useState<string>('ALL');
+    const [teamDepartmentFilter, setTeamDepartmentFilter] = useState<string>('ALL');
+    const [teamSearchQuery, setTeamSearchQuery] = useState('');
+    const [editingTeamMember, setEditingTeamMember] = useState<TeamMember | null>(null);
 
     // Global keyboard shortcut for Command Palette (Ctrl+K or Cmd+K)
     useEffect(() => {
@@ -437,6 +449,39 @@ export default function Dashboard() {
         }
     };
 
+    // Team member delete handler
+    const handleDeleteTeamMember = async (memberId: string, memberName: string) => {
+        if (confirm(`Are you sure you want to remove "${memberName}" from the team workspace?`)) {
+            try {
+                setTeam(prev => prev.filter(m => m.id !== memberId));
+                await api.delete(`/team/${memberId}`);
+                await refreshAllData();
+            } catch (err: any) {
+                alert(err.response?.data?.error || 'Failed to remove team member');
+                await refreshAllData();
+            }
+        }
+    };
+
+    // Team member edit opener
+    const handleEditTeamMember = (member: TeamMember) => {
+        setEditingTeamMember(member);
+        setFormData({
+            name: member.name,
+            role: member.role,
+            email: member.email,
+            department: member.department || 'SALES',
+            phone: member.phone || '',
+            status: member.status || 'ACTIVE',
+            leadsAssigned: member.leadsAssigned || 0,
+            dealsClosed: member.dealsClosed || 0,
+            revenueGenerated: member.revenueGenerated || 0,
+            projectsCount: member.projectsCount || 0,
+            rating: member.rating || 5.0
+        });
+        setModalType('team');
+    };
+
     // Record Payment Form submit
     const handleRecordPayment = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -502,11 +547,25 @@ export default function Dashboard() {
                     dueDate: formData.dueDate || undefined
                 });
             } else if (modalType === 'team') {
-                await api.post('/team', {
+                const payload = {
                     name: formData.name,
                     role: formData.role,
-                    email: formData.email
-                });
+                    email: formData.email,
+                    department: formData.department || 'SALES',
+                    phone: formData.phone || undefined,
+                    status: formData.status || 'ACTIVE',
+                    leadsAssigned: parseInt(formData.leadsAssigned) || 0,
+                    dealsClosed: parseInt(formData.dealsClosed) || 0,
+                    revenueGenerated: parseFloat(formData.revenueGenerated) || 0,
+                    projectsCount: parseInt(formData.projectsCount) || 0,
+                    rating: parseFloat(formData.rating) || 5.0
+                };
+                if (editingTeamMember) {
+                    await api.patch(`/team/${editingTeamMember.id}`, payload);
+                } else {
+                    await api.post('/team', payload);
+                }
+                setEditingTeamMember(null);
             }
 
             setModalType(null);
@@ -1508,7 +1567,8 @@ export default function Dashboard() {
                     leads: leads.length,
                     tasks: tasks.filter(t => t.status !== 'DONE').length,
                     invoices: invoices.length,
-                    approvals: operationalPriorities.pendingApprovalsCount
+                    approvals: operationalPriorities.pendingApprovalsCount,
+                    team: team.length
                 }}
             />
 
@@ -1696,48 +1756,345 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {activeView === 'team' && (
-                    <div className="space-y-6">
-                        <TopNavBar title="Team Directory" subtitle="Staff members, assignees, and roles." />
-                        <div className="flex justify-between items-center bg-[#0a0f1d] p-4 rounded-2xl border border-white/[0.08]">
-                            <span className="text-xs text-gray-400">Total Staff: <strong className="text-white">{team.length}</strong></span>
-                            <button
-                                onClick={() => setModalType('team')}
-                                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow"
-                            >
-                                <Plus size={14} /> Add Team Member
-                            </button>
-                        </div>
-                        {team.length === 0 ? (
-                            <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
-                                <UserCheck size={36} className="text-indigo-400 mx-auto mb-3" />
-                                <h3 className="text-base font-bold text-white mb-1">No team members added</h3>
-                                <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
-                                    Add your team members to assign tasks and manage agency workload.
-                                </p>
-                                <button
-                                    onClick={() => setModalType('team')}
-                                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
-                                >
-                                    <Plus size={16} /> Add Member
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {team.map(m => (
-                                    <div key={m.id} className="p-6 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] text-center">
-                                        <div className="w-14 h-14 rounded-full bg-indigo-600/20 text-indigo-300 font-bold text-lg flex items-center justify-center mx-auto mb-3 border border-indigo-500/30">
-                                            {m.name.charAt(0)}
+                {activeView === 'team' && (() => {
+                    const salesMembers = team.filter(m => (m.department || 'SALES').toUpperCase() === 'SALES');
+                    const totalSalesRevenue = salesMembers.reduce((sum, m) => sum + (parseFloat(m.revenueGenerated?.toString() || '0') || 0), 0);
+                    const totalDeals = salesMembers.reduce((sum, m) => sum + (m.dealsClosed || 0), 0);
+                    const totalLeads = salesMembers.reduce((sum, m) => sum + (m.leadsAssigned || 0), 0);
+                    const activeCount = team.filter(m => (m.status || 'ACTIVE') === 'ACTIVE').length;
+
+                    const filteredMembers = team.filter(m => {
+                        const dept = (m.department || 'SALES').toUpperCase();
+                        const matchesDept = teamDepartmentFilter === 'ALL' || dept === teamDepartmentFilter;
+                        const q = teamSearchQuery.toLowerCase().trim();
+                        const matchesSearch = !q ||
+                            m.name.toLowerCase().includes(q) ||
+                            m.email.toLowerCase().includes(q) ||
+                            m.role.toLowerCase().includes(q) ||
+                            (m.phone && m.phone.toLowerCase().includes(q));
+                        return matchesDept && matchesSearch;
+                    });
+
+                    return (
+                        <div className="space-y-6">
+                            <TopNavBar
+                                title="Team & Sales Workspace"
+                                subtitle="Manage your agency sales force, delivery team, closed deals, and workload."
+                            />
+
+                            {/* Sales & Team Performance Summary Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                <div className="p-4 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] relative overflow-hidden">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-semibold text-gray-400">Sales Force</span>
+                                        <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                                            <Flame size={16} />
                                         </div>
-                                        <h4 className="font-bold text-white text-base">{m.name}</h4>
-                                        <p className="text-xs text-indigo-400 mb-2">{m.role}</p>
-                                        <p className="text-xs text-gray-400">{m.email}</p>
                                     </div>
-                                ))}
+                                    <div className="text-2xl font-extrabold text-white">{salesMembers.length}</div>
+                                    <div className="text-[11px] text-gray-500 mt-1">Quota-carrying reps & SDRs</div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] relative overflow-hidden">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-semibold text-gray-400">Pipeline Leads</span>
+                                        <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                                            <Target size={16} />
+                                        </div>
+                                    </div>
+                                    <div className="text-2xl font-extrabold text-white">{totalLeads}</div>
+                                    <div className="text-[11px] text-gray-500 mt-1">Assigned sales opportunities</div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] relative overflow-hidden">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-semibold text-gray-400">Deals Won</span>
+                                        <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                                            <CheckCircle size={16} />
+                                        </div>
+                                    </div>
+                                    <div className="text-2xl font-extrabold text-white">{totalDeals}</div>
+                                    <div className="text-[11px] text-gray-500 mt-1">Closed client contracts</div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] relative overflow-hidden">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-semibold text-gray-400">Sales Closed (INR)</span>
+                                        <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                                            <TrendingUp size={16} />
+                                        </div>
+                                    </div>
+                                    <div className="text-2xl font-extrabold text-emerald-400 font-mono">
+                                        {formatCompactINR(totalSalesRevenue)}
+                                    </div>
+                                    <div className="text-[11px] text-gray-500 mt-1">Total revenue closed</div>
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] relative overflow-hidden">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-semibold text-gray-400">Active Staff</span>
+                                        <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
+                                            <Users size={16} />
+                                        </div>
+                                    </div>
+                                    <div className="text-2xl font-extrabold text-white">{activeCount} / {team.length}</div>
+                                    <div className="text-[11px] text-gray-500 mt-1">Full agency capacity</div>
+                                </div>
                             </div>
-                        )}
-                    </div>
-                )}
+
+                            {/* Filter Bar & Action Header */}
+                            <div className="bg-[#0a0f1d] p-4 rounded-2xl border border-white/[0.08] flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                {/* Department Pills */}
+                                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+                                    {[
+                                        { id: 'ALL', label: 'All Staff', count: team.length },
+                                        { id: 'SALES', label: '🔥 Sales Team', count: team.filter(m => (m.department || 'SALES').toUpperCase() === 'SALES').length },
+                                        { id: 'OPERATIONS', label: '⚡ Operations', count: team.filter(m => (m.department || '').toUpperCase() === 'OPERATIONS').length },
+                                        { id: 'DEVELOPMENT', label: '💻 Tech & Dev', count: team.filter(m => (m.department || '').toUpperCase() === 'DEVELOPMENT').length },
+                                        { id: 'DESIGN', label: '🎨 Creative', count: team.filter(m => (m.department || '').toUpperCase() === 'DESIGN').length },
+                                    ].map(dept => (
+                                        <button
+                                            key={dept.id}
+                                            onClick={() => setTeamDepartmentFilter(dept.id)}
+                                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                                                teamDepartmentFilter === dept.id
+                                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                                    : 'bg-white/[0.04] text-gray-400 hover:text-white hover:bg-white/[0.08]'
+                                            }`}
+                                        >
+                                            <span>{dept.label}</span>
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                                teamDepartmentFilter === dept.id ? 'bg-black/30 text-white' : 'bg-white/10 text-gray-300'
+                                            }`}>
+                                                {dept.count}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Search & Add Button */}
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex-1 md:w-56">
+                                        <input
+                                            type="text"
+                                            placeholder="Search team or sales..."
+                                            value={teamSearchQuery}
+                                            onChange={(e) => setTeamSearchQuery(e.target.value)}
+                                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-3 py-1.5 pl-8 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                        <Search size={14} className="absolute left-2.5 top-2 text-gray-500" />
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            setEditingTeamMember(null);
+                                            setFormData({
+                                                department: 'SALES',
+                                                role: 'Sales Lead',
+                                                status: 'ACTIVE',
+                                                leadsAssigned: 0,
+                                                dealsClosed: 0,
+                                                revenueGenerated: 0,
+                                                rating: 5.0
+                                            });
+                                            setModalType('team');
+                                        }}
+                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-600/30 transition-all shrink-0"
+                                    >
+                                        <Plus size={14} /> Add Team Member
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Team Member Cards Grid */}
+                            {filteredMembers.length === 0 ? (
+                                <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-dashed border-white/[0.1] text-center">
+                                    <UserCheck size={36} className="text-indigo-400 mx-auto mb-3" />
+                                    <h3 className="text-base font-bold text-white mb-1">
+                                        {teamSearchQuery ? 'No matching members found' : 'No team members in this department'}
+                                    </h3>
+                                    <p className="text-xs text-gray-400 max-w-sm mx-auto mb-5">
+                                        {teamSearchQuery
+                                            ? 'Try adjusting your search criteria or filter.'
+                                            : 'Add your sales reps, developers, and project managers to manage assignments and workload.'}
+                                    </p>
+                                    <button
+                                        onClick={() => {
+                                            setEditingTeamMember(null);
+                                            setFormData({
+                                                department: teamDepartmentFilter !== 'ALL' ? teamDepartmentFilter : 'SALES',
+                                                role: 'Sales Lead',
+                                                status: 'ACTIVE',
+                                                leadsAssigned: 0,
+                                                dealsClosed: 0,
+                                                revenueGenerated: 0
+                                            });
+                                            setModalType('team');
+                                        }}
+                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-lg inline-flex items-center gap-1.5"
+                                    >
+                                        <Plus size={16} /> Add Member
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {filteredMembers.map(m => {
+                                        const isSales = (m.department || 'SALES').toUpperCase() === 'SALES';
+                                        const deptName = (m.department || 'SALES').toUpperCase();
+                                        const deptBadgeStyles: Record<string, string> = {
+                                            SALES: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+                                            DEVELOPMENT: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
+                                            DESIGN: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+                                            OPERATIONS: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+                                            MANAGEMENT: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30'
+                                        };
+
+                                        return (
+                                            <div
+                                                key={m.id}
+                                                className="p-6 rounded-2xl bg-[#0a0f1d] border border-white/[0.08] hover:border-indigo-500/40 transition-all shadow-md group flex flex-col justify-between relative overflow-hidden"
+                                            >
+                                                {/* Ambient Corner Tint */}
+                                                {isSales && (
+                                                    <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full pointer-events-none" />
+                                                )}
+
+                                                <div>
+                                                    {/* Top Row: Avatar + Status + Edit/Delete */}
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-600/30 to-purple-600/30 border border-indigo-500/30 text-indigo-300 font-extrabold text-base flex items-center justify-center shadow-inner">
+                                                                {m.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-white text-base leading-tight group-hover:text-indigo-300 transition-colors">
+                                                                    {m.name}
+                                                                </h4>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${deptBadgeStyles[deptName] || deptBadgeStyles.SALES}`}>
+                                                                        {deptName === 'SALES' ? '🔥 SALES' : deptName}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                                                        <span className={`w-1.5 h-1.5 rounded-full ${
+                                                                            m.status === 'ON_LEAVE' ? 'bg-gray-400' : m.status === 'INVITED' ? 'bg-amber-400' : 'bg-emerald-400 animate-pulse'
+                                                                        }`} />
+                                                                        {m.status || 'Active'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Actions */}
+                                                        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleEditTeamMember(m)}
+                                                                className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
+                                                                title="Edit Member"
+                                                            >
+                                                                <Edit3 size={14} />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteTeamMember(m.id, m.name)}
+                                                                className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
+                                                                title="Remove Member"
+                                                            >
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Role Title */}
+                                                    <div className="text-xs font-semibold text-gray-300 mb-3 flex items-center gap-1.5">
+                                                        <Briefcase size={13} className="text-indigo-400" />
+                                                        <span>{m.role}</span>
+                                                    </div>
+
+                                                    {/* Contact Chips */}
+                                                    <div className="space-y-1.5 mb-4">
+                                                        <a
+                                                            href={`mailto:${m.email}`}
+                                                            className="flex items-center gap-2 text-xs text-gray-400 hover:text-indigo-300 transition-colors"
+                                                        >
+                                                            <Mail size={12} className="text-gray-500 shrink-0" />
+                                                            <span className="truncate">{m.email}</span>
+                                                        </a>
+                                                        {m.phone && (
+                                                            <div className="flex items-center justify-between text-xs text-gray-400">
+                                                                <a
+                                                                    href={`tel:${m.phone}`}
+                                                                    className="flex items-center gap-2 hover:text-indigo-300 transition-colors"
+                                                                >
+                                                                    <Phone size={12} className="text-gray-500 shrink-0" />
+                                                                    <span>{m.phone}</span>
+                                                                </a>
+                                                                <a
+                                                                    href={`https://wa.me/${m.phone.replace(/\D/g, '')}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-[10px] text-emerald-400 hover:underline font-semibold flex items-center gap-1"
+                                                                >
+                                                                    <MessageSquare size={11} /> WhatsApp
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Performance Metric Block */}
+                                                <div>
+                                                    {isSales ? (
+                                                        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] grid grid-cols-3 gap-2 text-center mb-3">
+                                                            <div>
+                                                                <div className="text-[10px] text-gray-500 uppercase font-semibold">Leads</div>
+                                                                <div className="text-sm font-extrabold text-white font-mono mt-0.5">{m.leadsAssigned || 0}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] text-gray-500 uppercase font-semibold">Deals</div>
+                                                                <div className="text-sm font-extrabold text-purple-400 font-mono mt-0.5">{m.dealsClosed || 0}</div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-[10px] text-gray-500 uppercase font-semibold">Revenue</div>
+                                                                <div className="text-xs font-extrabold text-emerald-400 font-mono mt-0.5">
+                                                                    {formatCompactINR(m.revenueGenerated || 0)}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between text-xs mb-3">
+                                                            <div className="flex items-center gap-1.5 text-gray-400">
+                                                                <CheckSquare size={13} className="text-indigo-400" />
+                                                                <span>{m.projectsCount || 0} Projects</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-amber-400 font-bold">
+                                                                <Star size={13} className="fill-amber-400 text-amber-400" />
+                                                                <span>{m.rating || '5.0'}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Card Footer Quick Link */}
+                                                    <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-xs text-gray-400">
+                                                        <button
+                                                            onClick={() => setActiveView('leads')}
+                                                            className="text-indigo-400 hover:text-indigo-300 font-semibold text-[11px] inline-flex items-center gap-1"
+                                                        >
+                                                            <Target size={12} /> Assign to CRM Leads
+                                                        </button>
+                                                        <span className="text-[10px] text-gray-500">
+                                                            {m.createdAt ? new Date(m.createdAt).toLocaleDateString() : 'Active'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {activeView === 'approvals' && (
                     <div className="space-y-6">
@@ -1772,8 +2129,12 @@ export default function Dashboard() {
                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
                     <div className="bg-[#0a0f1d] border border-white/10 rounded-2xl w-full max-w-md p-6 shadow-2xl relative animate-in fade-in zoom-in-95">
                         <div className="flex justify-between items-center mb-5 pb-3 border-b border-white/[0.08]">
-                            <h3 className="text-base font-bold text-white capitalize">
-                                {modalType === 'payment' ? 'Record Client Payment' : `Add ${modalType}`}
+                            <h3 className="text-base font-bold text-white">
+                                {modalType === 'payment'
+                                    ? 'Record Client Payment'
+                                    : modalType === 'team'
+                                        ? (editingTeamMember ? 'Edit Staff Member' : 'Add Team Member / Sales Rep')
+                                        : `Add ${modalType ? modalType.charAt(0).toUpperCase() + modalType.slice(1) : ''}`}
                             </h3>
                             <button onClick={() => setModalType(null)} className="text-gray-400 hover:text-white">
                                 <X size={18} />
@@ -2007,38 +2368,150 @@ export default function Dashboard() {
 
                             {modalType === 'team' && (
                                 <>
+                                    {/* Department Selector */}
                                     <div>
-                                        <label className="text-xs text-gray-400 block mb-1">Member Name *</label>
+                                        <label className="text-xs text-gray-400 block mb-1.5 font-semibold">Department *</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {[
+                                                { id: 'SALES', label: '🔥 Sales Team' },
+                                                { id: 'OPERATIONS', label: '⚡ Operations' },
+                                                { id: 'DEVELOPMENT', label: '💻 Tech / Dev' },
+                                                { id: 'DESIGN', label: '🎨 Creative' },
+                                                { id: 'MANAGEMENT', label: '👑 Leadership' },
+                                            ].map(d => (
+                                                <button
+                                                    type="button"
+                                                    key={d.id}
+                                                    onClick={() => setFormData({ ...formData, department: d.id })}
+                                                    className={`px-2.5 py-2 rounded-xl text-[11px] font-bold border transition-all text-center ${
+                                                        (formData.department || 'SALES') === d.id
+                                                            ? 'bg-indigo-600 border-indigo-500 text-white shadow-md'
+                                                            : 'bg-white/[0.03] border-white/10 text-gray-400 hover:text-white hover:bg-white/[0.06]'
+                                                    }`}
+                                                >
+                                                    {d.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs text-gray-400 block mb-1">Full Name *</label>
                                         <input
                                             required
                                             type="text"
-                                            placeholder="Member Name"
+                                            placeholder="e.g. Rahul Sharma"
                                             value={formData.name || ''}
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                                         />
                                     </div>
+
                                     <div>
-                                        <label className="text-xs text-gray-400 block mb-1">Role *</label>
+                                        <label className="text-xs text-gray-400 block mb-1">Role Title *</label>
                                         <input
                                             required
                                             type="text"
-                                            placeholder="e.g. Senior Designer"
+                                            placeholder={(formData.department || 'SALES') === 'SALES' ? 'e.g. Senior Account Executive' : 'e.g. Lead Full Stack Engineer'}
                                             value={formData.role || ''}
                                             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                                         />
+                                        {/* Quick Role Suggestions */}
+                                        <div className="flex flex-wrap gap-1 mt-1.5">
+                                            {((formData.department || 'SALES') === 'SALES'
+                                                ? ['Sales Lead', 'Account Executive', 'SDR', 'BDM']
+                                                : ['Project Manager', 'UI/UX Designer', 'Developer', 'Lead']
+                                            ).map(preset => (
+                                                <button
+                                                    type="button"
+                                                    key={preset}
+                                                    onClick={() => setFormData({ ...formData, role: preset })}
+                                                    className="text-[10px] bg-white/[0.05] hover:bg-white/[0.1] text-gray-400 hover:text-white px-2 py-0.5 rounded-lg border border-white/5 transition-colors"
+                                                >
+                                                    + {preset}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="text-xs text-gray-400 block mb-1">Work Email *</label>
+                                            <input
+                                                required
+                                                type="email"
+                                                placeholder="rep@agency.com"
+                                                value={formData.email || ''}
+                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-400 block mb-1">Phone / WhatsApp</label>
+                                            <input
+                                                type="tel"
+                                                placeholder="+91 98765 43210"
+                                                value={formData.phone || ''}
+                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Sales Performance Inputs (if Sales department) */}
+                                    {(formData.department || 'SALES') === 'SALES' && (
+                                        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/15 space-y-2">
+                                            <div className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                                                <Flame size={12} /> Sales Pipeline & Quota Setup
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                <div>
+                                                    <label className="text-[10px] text-gray-400 block mb-0.5">Leads Assigned</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={formData.leadsAssigned ?? 0}
+                                                        onChange={(e) => setFormData({ ...formData, leadsAssigned: e.target.value })}
+                                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-gray-400 block mb-0.5">Deals Closed</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={formData.dealsClosed ?? 0}
+                                                        onChange={(e) => setFormData({ ...formData, dealsClosed: e.target.value })}
+                                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] text-gray-400 block mb-0.5">Revenue Won (₹)</label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={formData.revenueGenerated ?? 0}
+                                                        onChange={(e) => setFormData({ ...formData, revenueGenerated: e.target.value })}
+                                                        className="w-full bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Status Selector */}
                                     <div>
-                                        <label className="text-xs text-gray-400 block mb-1">Email *</label>
-                                        <input
-                                            required
-                                            type="email"
-                                            placeholder="member@agency.com"
-                                            value={formData.email || ''}
-                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
-                                        />
+                                        <label className="text-xs text-gray-400 block mb-1">Status</label>
+                                        <select
+                                            value={formData.status || 'ACTIVE'}
+                                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                            className="w-full bg-[#111827] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white"
+                                        >
+                                            <option value="ACTIVE">ACTIVE (On Duty)</option>
+                                            <option value="INVITED">INVITED (Onboarding)</option>
+                                            <option value="ON_LEAVE">ON_LEAVE (Temporary)</option>
+                                        </select>
                                     </div>
                                 </>
                             )}
@@ -2078,7 +2551,11 @@ export default function Dashboard() {
                                     disabled={submitting}
                                     className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 disabled:opacity-50"
                                 >
-                                    {submitting ? 'Saving...' : 'Save'}
+                                    {submitting
+                                        ? 'Saving...'
+                                        : modalType === 'team'
+                                            ? (editingTeamMember ? 'Update Member' : (formData.department === 'SALES' ? 'Add Sales Rep' : 'Add Team Member'))
+                                            : 'Save'}
                                 </button>
                             </div>
                         </form>

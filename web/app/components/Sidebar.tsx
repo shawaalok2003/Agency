@@ -23,6 +23,7 @@ interface SidebarProps {
         tasks?: number;
         invoices?: number;
         approvals?: number;
+        team?: number;
     };
 }
 
@@ -83,7 +84,7 @@ export default function Sidebar({
         {
             title: 'TEAM & OPERATIONS',
             items: [
-                { id: 'team', label: 'Team & Workload', icon: UserCheck },
+                { id: 'team', label: 'Team & Sales Workspace', icon: UserCheck, badge: counts.team },
                 { id: 'approvals', label: 'Client Approvals', icon: Clock, badge: counts.approvals },
             ]
         },

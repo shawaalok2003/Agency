@@ -124,14 +124,21 @@ model Contact {
 }
 
 model TeamMember {
-  id            String   @id @default(uuid())
-  name          String
-  role          String
-  email         String   @unique
-  avatarUrl     String?
-  projectsCount Int      @default(0)
-  rating        Decimal  @default(5.0) @db.Decimal(2, 1)
-  createdAt     DateTime @default(now())
+  id               String   @id @default(uuid())
+  name             String
+  role             String
+  email            String   @unique
+  avatarUrl        String?
+  department       String?  @default("SALES")
+  phone            String?
+  status           String   @default("ACTIVE")
+  projectsCount    Int      @default(0)
+  leadsAssigned    Int      @default(0)
+  dealsClosed      Int      @default(0)
+  revenueGenerated Decimal  @default(0.00) @db.Decimal(12, 2)
+  rating           Decimal  @default(5.0) @db.Decimal(2, 1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
 }
 
 model Task {
