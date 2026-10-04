@@ -19,6 +19,10 @@ import SalesDashboardView from '@/app/components/SalesDashboardView';
 import DailyTrackerView from '@/app/components/DailyTrackerView';
 import DailyReportsAdminFeed from '@/app/components/DailyReportsAdminFeed';
 import TeamChatView from '@/app/components/TeamChatView';
+import CheckInWidget from '@/app/components/CheckInWidget';
+import AttendanceView from '@/app/components/AttendanceView';
+import TechDashboardView from '@/app/components/TechDashboardView';
+import LeadershipDashboardView from '@/app/components/LeadershipDashboardView';
 
 // --- Interfaces ---
 interface Scope {
@@ -194,6 +198,13 @@ export default function Dashboard() {
     const [editingTeamMember, setEditingTeamMember] = useState<TeamMember | null>(null);
     const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
 
+    const userRole = (user?.role || 'OWNER').toUpperCase();
+    const userDept = (user?.department || (userRole === 'SALES' ? 'SALES' : (userRole === 'DEVELOPER' ? 'DEVELOPMENT' : 'MANAGEMENT'))).toUpperCase();
+    const isCompanyAdmin = userRole === 'ADMIN' || userRole === 'OWNER' || user?.email === 'aalokshaw2003@gmail.com';
+    const isSales = !isCompanyAdmin && (userDept === 'SALES' || userRole === 'SALES');
+    const isTech = !isCompanyAdmin && (userDept === 'DEVELOPMENT' || userDept === 'TECH_DEV' || userDept === 'TECH' || userRole === 'DEVELOPER');
+    const isLeadership = !isCompanyAdmin && (userDept === 'MANAGEMENT' || userDept === 'LEADERSHIP');
+
     const toggleRevealPassword = (id: string) => {
         setRevealedPasswords(prev => ({ ...prev, [id]: !prev[id] }));
     };
@@ -231,8 +242,19 @@ export default function Dashboard() {
             const userRes = await api.get('/auth/me');
             const currentUser = userRes.data;
             setUser(currentUser);
-            if (currentUser?.role === 'SALES') {
-                setActiveView(prev => (prev === 'dashboard' ? 'sales_dashboard' : prev));
+
+            const role = (currentUser?.role || 'OWNER').toUpperCase();
+            const dept = (currentUser?.department || (role === 'SALES' ? 'SALES' : (role === 'DEVELOPER' ? 'DEVELOPMENT' : 'MANAGEMENT'))).toUpperCase();
+            const isCompanyAdmin = role === 'ADMIN' || role === 'OWNER' || currentUser?.email === 'aalokshaw2003@gmail.com';
+
+            if (!isCompanyAdmin) {
+                if (dept === 'SALES' || role === 'SALES') {
+                    setActiveView(prev => (prev === 'dashboard' ? 'sales_dashboard' : prev));
+                } else if (dept === 'DEVELOPMENT' || dept === 'TECH_DEV' || dept === 'TECH' || role === 'DEVELOPER') {
+                    setActiveView(prev => (prev === 'dashboard' ? 'tech_dashboard' : prev));
+                } else if (dept === 'MANAGEMENT' || dept === 'LEADERSHIP') {
+                    setActiveView(prev => (prev === 'dashboard' ? 'leadership_dashboard' : prev));
+                }
             }
             await refreshAllData();
         } catch (err: any) {
@@ -754,6 +776,9 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap">
+                {/* One-Click Attendance Duty Check-In Tracker */}
+                <CheckInWidget compact user={user} />
+
                 {/* Global Search Input (opens Command Palette) */}
                 <button
                     onClick={() => setIsCommandPaletteOpen(true)}
@@ -1042,6 +1067,30 @@ export default function Dashboard() {
                             </span>
                         </div>
                     </div>
+                </div>
+
+                {/* Live Team Check-Ins & Attendance Monitor for Admin */}
+                <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                                <Clock size={16} />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold text-white tracking-tight">Live Team Attendance & Check-Ins</h2>
+                                <p className="text-xs text-gray-400">Real-time status of staff members on duty across your organization.</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setActiveView('attendance')}
+                            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                        >
+                            <span>Open Attendance Desk</span>
+                            <ChevronRight size={14} />
+                        </button>
+                    </div>
+                    <AttendanceView />
                 </div>
 
                 {/* Recent Projects Section */}
@@ -1665,6 +1714,34 @@ export default function Dashboard() {
                     />
                 )}
 
+                {activeView === 'tech_dashboard' && (
+                    <TechDashboardView
+                        user={user}
+                        projects={projects}
+                        tasks={tasks}
+                        onOpenNewProject={() => setModalType('project')}
+                        onViewChange={setActiveView}
+                    />
+                )}
+
+                {activeView === 'leadership_dashboard' && (
+                    <LeadershipDashboardView
+                        user={user}
+                        projects={projects}
+                        leads={leads}
+                        tasks={tasks}
+                        team={team}
+                        onViewChange={setActiveView}
+                    />
+                )}
+
+                {activeView === 'attendance' && (
+                    <div className="space-y-6">
+                        <TopNavBar title="Live Team Attendance" subtitle="Real-time duty monitor and check-ins across departments." />
+                        <AttendanceView />
+                    </div>
+                )}
+
                 {activeView === 'team_chat' && (
                     <TeamChatView
                         user={user}
@@ -1819,37 +1896,65 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {activeView === 'finance' && <InvoicesView />}
-
-                {activeView === 'payments' && (
-                    <div className="space-y-6">
-                        <TopNavBar title="Payments Ledger" subtitle="Completed and reconciled client payments." />
-                        <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
-                            <h3 className="font-bold text-white text-base mb-4 flex items-center gap-2">
-                                <CreditCard size={18} className="text-emerald-400" /> Recorded Payment History
-                            </h3>
-                            {invoices.filter(i => i.status === 'PAID').length === 0 ? (
-                                <div className="text-center py-8 text-gray-500 text-xs">
-                                    No completed payments recorded yet. Click &apos;Record Payment&apos; on any invoice to record payment.
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {invoices.filter(i => i.status === 'PAID').map(inv => (
-                                        <div key={inv.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between text-xs">
-                                            <div>
-                                                <span className="font-bold text-white">{inv.project?.name || 'Invoice Payment'}</span>
-                                                <span className="text-gray-500 ml-2 font-mono">({inv.id.substring(0, 8)})</span>
-                                            </div>
-                                            <span className="font-mono font-bold text-emerald-400">{formatINR(inv.amount)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                {activeView === 'finance' && (
+                    isCompanyAdmin ? (
+                        <InvoicesView />
+                    ) : (
+                        <div className="space-y-6">
+                            <TopNavBar title="Invoices & Billing" subtitle="Company financials." />
+                            <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-red-500/20 text-center space-y-3">
+                                <ShieldCheck size={40} className="text-red-400 mx-auto" />
+                                <h3 className="text-base font-bold text-white">Confidential Financials</h3>
+                                <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                                    Company invoices, billing, and financial ledgers are restricted to Company Admin only.
+                                </p>
+                            </div>
                         </div>
-                    </div>
+                    )
                 )}
 
-                {activeView === 'team' && (() => {
+                {activeView === 'payments' && (
+                    isCompanyAdmin ? (
+                        <div className="space-y-6">
+                            <TopNavBar title="Payments Ledger" subtitle="Completed and reconciled client payments." />
+                            <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6">
+                                <h3 className="font-bold text-white text-base mb-4 flex items-center gap-2">
+                                    <CreditCard size={18} className="text-emerald-400" /> Recorded Payment History
+                                </h3>
+                                {invoices.filter(i => i.status === 'PAID').length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500 text-xs">
+                                        No completed payments recorded yet. Click &apos;Record Payment&apos; on any invoice to record payment.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {invoices.filter(i => i.status === 'PAID').map(inv => (
+                                            <div key={inv.id} className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-between text-xs">
+                                                <div>
+                                                    <span className="font-bold text-white">{inv.project?.name || 'Invoice Payment'}</span>
+                                                    <span className="text-gray-500 ml-2 font-mono">({inv.id.substring(0, 8)})</span>
+                                                </div>
+                                                <span className="font-mono font-bold text-emerald-400">{formatINR(inv.amount)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <TopNavBar title="Payments Ledger" subtitle="Company ledger." />
+                            <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-red-500/20 text-center space-y-3">
+                                <ShieldCheck size={40} className="text-red-400 mx-auto" />
+                                <h3 className="text-base font-bold text-white">Confidential Financials</h3>
+                                <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                                    Company payments and ledgers are confidential and restricted to Company Admin.
+                                </p>
+                            </div>
+                        </div>
+                    )
+                )}
+
+                {(activeView === 'team' || activeView === 'directory') && (() => {
                     const salesMembers = team.filter(m => (m.department || 'SALES').toUpperCase() === 'SALES');
                     const totalSalesRevenue = salesMembers.reduce((sum, m) => sum + (parseFloat(m.revenueGenerated?.toString() || '0') || 0), 0);
                     const totalDeals = salesMembers.reduce((sum, m) => sum + (m.dealsClosed || 0), 0);
@@ -1871,8 +1976,8 @@ export default function Dashboard() {
                     return (
                         <div className="space-y-6">
                             <TopNavBar
-                                title="Team & Sales Workspace"
-                                subtitle="Manage your agency sales force, delivery team, closed deals, and workload."
+                                title={isCompanyAdmin && activeView === 'team' ? "Team & Sales Workspace" : "Company Team Directory"}
+                                subtitle={isCompanyAdmin && activeView === 'team' ? "Manage your agency sales force, delivery team, credentials, and workload." : "Staff directory and department contacts."}
                             />
 
                             {/* Sales & Team Performance Summary Cards */}
@@ -1978,24 +2083,26 @@ export default function Dashboard() {
                                         <Search size={14} className="absolute left-2.5 top-2 text-gray-500" />
                                     </div>
 
-                                    <button
-                                        onClick={() => {
-                                            setEditingTeamMember(null);
-                                            setFormData({
-                                                department: 'SALES',
-                                                role: 'Sales Lead',
-                                                status: 'ACTIVE',
-                                                leadsAssigned: 0,
-                                                dealsClosed: 0,
-                                                revenueGenerated: 0,
-                                                rating: 5.0
-                                            });
-                                            setModalType('team');
-                                        }}
-                                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-600/30 transition-all shrink-0"
-                                    >
-                                        <Plus size={14} /> Add Team Member
-                                    </button>
+                                    {isCompanyAdmin && (
+                                        <button
+                                            onClick={() => {
+                                                setEditingTeamMember(null);
+                                                setFormData({
+                                                    department: 'SALES',
+                                                    role: 'Sales Lead',
+                                                    status: 'ACTIVE',
+                                                    leadsAssigned: 0,
+                                                    dealsClosed: 0,
+                                                    revenueGenerated: 0,
+                                                    rating: 5.0
+                                                });
+                                                setModalType('team');
+                                            }}
+                                            className="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-600/30 transition-all shrink-0"
+                                        >
+                                            <Plus size={14} /> Add Team Member
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
@@ -2077,25 +2184,27 @@ export default function Dashboard() {
                                                             </div>
                                                         </div>
 
-                                                        {/* Actions */}
-                                                        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleEditTeamMember(m)}
-                                                                className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
-                                                                title="Edit Member"
-                                                            >
-                                                                <Edit3 size={14} />
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleDeleteTeamMember(m.id, m.name)}
-                                                                className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
-                                                                title="Remove Member"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </button>
-                                                        </div>
+                                                        {/* Actions (Company Admin Only: "leadership can do all but can not access team details") */}
+                                                        {isCompanyAdmin && (
+                                                            <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleEditTeamMember(m)}
+                                                                    className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
+                                                                    title="Edit Member"
+                                                                >
+                                                                    <Edit3 size={14} />
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDeleteTeamMember(m.id, m.name)}
+                                                                    className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
+                                                                    title="Remove Member"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {/* Role Title */}
@@ -2134,38 +2243,40 @@ export default function Dashboard() {
                                                         )}
                                                     </div>
 
-                                                    {/* Member Login Password Visible to Admin */}
-                                                    <div className="mb-3 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-between text-xs">
-                                                        <div className="flex items-center gap-1.5 min-w-0">
-                                                            <Key size={13} className="text-amber-400 shrink-0" />
-                                                            <span className="text-[10px] text-gray-400 uppercase font-semibold">Password:</span>
-                                                            <span className="font-mono text-indigo-300 font-bold text-xs truncate">
-                                                                {revealedPasswords[m.id] ? (m.loginPassword || 'Aalok@6290') : '••••••••'}
-                                                            </span>
+                                                    {/* Member Login Password Visible ONLY to Admin */}
+                                                    {isCompanyAdmin && (
+                                                        <div className="mb-3 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-between text-xs">
+                                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                                <Key size={13} className="text-amber-400 shrink-0" />
+                                                                <span className="text-[10px] text-gray-400 uppercase font-semibold">Password:</span>
+                                                                <span className="font-mono text-indigo-300 font-bold text-xs truncate">
+                                                                    {revealedPasswords[m.id] ? (m.loginPassword || 'Aalok@6290') : '••••••••'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 shrink-0">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => toggleRevealPassword(m.id)}
+                                                                    className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                                                    title={revealedPasswords[m.id] ? "Hide password" : "Show password"}
+                                                                >
+                                                                    {revealedPasswords[m.id] ? <EyeOff size={13} /> : <Eye size={13} />}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const pass = m.loginPassword || 'Aalok@6290';
+                                                                        navigator.clipboard.writeText(pass);
+                                                                        alert(`Copied password for ${m.name}: ${pass}`);
+                                                                    }}
+                                                                    className="p-1 rounded text-gray-400 hover:text-emerald-400 hover:bg-white/10 transition-colors"
+                                                                    title="Copy password"
+                                                                >
+                                                                    <Copy size={13} />
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-1 shrink-0">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleRevealPassword(m.id)}
-                                                                className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                                                                title={revealedPasswords[m.id] ? "Hide password" : "Show password"}
-                                                            >
-                                                                {revealedPasswords[m.id] ? <EyeOff size={13} /> : <Eye size={13} />}
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    const pass = m.loginPassword || 'Aalok@6290';
-                                                                    navigator.clipboard.writeText(pass);
-                                                                    alert(`Copied password for ${m.name}: ${pass}`);
-                                                                }}
-                                                                className="p-1 rounded text-gray-400 hover:text-emerald-400 hover:bg-white/10 transition-colors"
-                                                                title="Copy password"
-                                                            >
-                                                                <Copy size={13} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
+                                                    )}
                                                 </div>
 
                                                 {/* Performance Metric Block */}

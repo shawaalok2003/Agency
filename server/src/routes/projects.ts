@@ -16,17 +16,19 @@ export async function projectRoutes(server: FastifyInstance) {
         }
 
         const { name, clientEmail } = result.data;
-        const userId = (request as any).user.id;
+        const user = (request as any).user;
+        const userId = user.id;
+        const companyName = user.companyName || 'dhandaeasy';
 
         // Check Limits
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return reply.code(401).send({ error: 'User not found' });
+        const userRec = await prisma.user.findUnique({ where: { id: userId } });
+        if (!userRec) return reply.code(401).send({ error: 'User not found' });
 
-        const isPro = user.plan === 'PRO';
-        const isTrialActive = user.trialEndsAt && new Date(user.trialEndsAt) > new Date();
+        const isPro = userRec.plan === 'PRO';
+        const isTrialActive = userRec.trialEndsAt && new Date(userRec.trialEndsAt) > new Date();
 
         if (!isPro && !isTrialActive) {
-            const count = await prisma.project.count({ where: { userId } });
+            const count = await prisma.project.count({ where: { companyName } });
             if (count >= 3) {
                 return reply.code(403).send({
                     error: 'Free Plan Limit Reached',
@@ -40,6 +42,7 @@ export async function projectRoutes(server: FastifyInstance) {
                 name,
                 clientEmail,
                 userId,
+                companyName,
             },
         });
 
@@ -47,9 +50,16 @@ export async function projectRoutes(server: FastifyInstance) {
     });
 
     server.get('/projects', { preHandler: [authenticate] }, async (request, reply) => {
-        const userId = (request as any).user.id;
+        const user = (request as any).user;
+        const companyName = user.companyName || 'dhandaeasy';
+
         const projects = await prisma.project.findMany({
-            where: { userId },
+            where: {
+                OR: [
+                    { companyName },
+                    { userId: user.id }
+                ]
+            },
             orderBy: { updatedAt: 'desc' },
             include: {
                 invoices: true,
@@ -75,10 +85,17 @@ export async function projectRoutes(server: FastifyInstance) {
 
     server.get('/projects/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { id } = request.params as { id: string };
-        const userId = (request as any).user.id;
+        const user = (request as any).user;
+        const companyName = user.companyName || 'dhandaeasy';
 
         const project = await prisma.project.findFirst({
-            where: { id, userId },
+            where: {
+                id,
+                OR: [
+                    { companyName },
+                    { userId: user.id }
+                ]
+            },
             include: {
                 scopes: true,
                 deliverables: {

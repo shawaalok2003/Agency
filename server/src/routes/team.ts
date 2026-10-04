@@ -38,6 +38,8 @@ const updateTeamSchema = z.object({
 export async function teamRoutes(server: FastifyInstance) {
     // 1. List all team members with optional search and department filter
     server.get('/team', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = (request as any).user;
+        const isCompanyAdmin = user.role === 'ADMIN' || user.role === 'OWNER' || user.email === 'aalokshaw2003@gmail.com';
         const query = request.query as { department?: string; search?: string };
         const { department, search } = query;
 
@@ -59,11 +61,26 @@ export async function teamRoutes(server: FastifyInstance) {
             where,
             orderBy: { createdAt: 'desc' }
         });
+
+        // If not company admin, hide login passwords from the response
+        if (!isCompanyAdmin) {
+            return members.map(m => {
+                const { loginPassword, ...rest } = m;
+                return rest;
+            });
+        }
+
         return members;
     });
 
-    // 2. Add or reactivate team member
+    // 2. Add or reactivate team member (Company Admin Only: "leadership can do all but can not access team details")
     server.post('/team', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = (request as any).user;
+        const isCompanyAdmin = user.role === 'ADMIN' || user.role === 'OWNER' || user.email === 'aalokshaw2003@gmail.com';
+        if (!isCompanyAdmin) {
+            return reply.code(403).send({ error: 'Access denied: Only Company Admin can manage team details and accounts.' });
+        }
+
         const result = createTeamSchema.safeParse(request.body);
         if (!result.success) {
             return reply.code(400).send({ error: result.error.errors[0]?.message || 'Invalid team member data' });
@@ -99,8 +116,14 @@ export async function teamRoutes(server: FastifyInstance) {
         return member;
     });
 
-    // 3. Update existing team member
+    // 3. Update existing team member (Company Admin Only)
     server.patch('/team/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = (request as any).user;
+        const isCompanyAdmin = user.role === 'ADMIN' || user.role === 'OWNER' || user.email === 'aalokshaw2003@gmail.com';
+        if (!isCompanyAdmin) {
+            return reply.code(403).send({ error: 'Access denied: Only Company Admin can manage team details.' });
+        }
+
         const { id } = request.params as { id: string };
         const result = updateTeamSchema.safeParse(request.body);
         if (!result.success) {
@@ -133,8 +156,14 @@ export async function teamRoutes(server: FastifyInstance) {
         return updated;
     });
 
-    // 4. Delete team member (removes both TeamMember record AND associated User account so email can be freely recreated)
+    // 4. Delete team member (Company Admin Only)
     server.delete('/team/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const user = (request as any).user;
+        const isCompanyAdmin = user.role === 'ADMIN' || user.role === 'OWNER' || user.email === 'aalokshaw2003@gmail.com';
+        if (!isCompanyAdmin) {
+            return reply.code(403).send({ error: 'Access denied: Only Company Admin can delete team accounts.' });
+        }
+
         const { id } = request.params as { id: string };
 
         const existing = await prisma.teamMember.findUnique({ where: { id } });

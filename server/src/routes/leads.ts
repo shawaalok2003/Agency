@@ -17,24 +17,19 @@ const createLeadSchema = z.object({
 });
 
 export async function leadRoutes(server: FastifyInstance) {
-    // GET ALL LEADS (Admin sees all; Sales rep sees assigned or own)
+    // GET ALL LEADS (Shared organization-wide between Admin, Sales & Leadership)
     server.get('/leads', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
-        const isAdmin = user.role === 'ADMIN' || user.role === 'OWNER';
+        const companyName = user.companyName || 'dhandaeasy';
 
-        let where: any = {};
-        if (!isAdmin) {
-            // Sales sees leads assigned to them or created by them
-            where = {
-                OR: [
-                    { ownerId: user.id },
-                    { assignedToEmail: user.email }
-                ]
-            };
-        }
-
+        // Organization-wide visibility: all authorized team members in company see shared leads
         const leads = await prisma.lead.findMany({
-            where,
+            where: {
+                OR: [
+                    { companyName },
+                    { ownerId: user.id }
+                ]
+            },
             orderBy: { createdAt: 'desc' }
         });
         return leads;
@@ -44,6 +39,7 @@ export async function leadRoutes(server: FastifyInstance) {
     server.post('/leads', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
         const userId = user.id;
+        const companyName = user.companyName || 'dhandaeasy';
         const result = createLeadSchema.safeParse(request.body);
         if (!result.success) {
             console.error('LEAD VALIDATION FAILED:', result.error);
@@ -65,6 +61,7 @@ export async function leadRoutes(server: FastifyInstance) {
                 priority: result.data.priority || 'MEDIUM',
                 notes: result.data.notes || null,
                 ownerId: userId,
+                companyName,
             }
         });
 

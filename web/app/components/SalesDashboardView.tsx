@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { api } from '@/src/api/client';
 import { formatINR, formatCompactINR } from '@/app/page';
+import CheckInWidget from './CheckInWidget';
 
 interface SalesDashboardProps {
     user: any;
@@ -27,12 +28,8 @@ export default function SalesDashboardView({
     const [selectedStage, setSelectedStage] = useState<string>('ALL');
     const [updatingLeadId, setUpdatingLeadId] = useState<string | null>(null);
 
-    // Filter leads assigned to current user (or all if admin)
-    const isAdmin = user?.role === 'ADMIN' || user?.role === 'OWNER';
-    const myLeads = leads.filter(l => {
-        if (isAdmin) return true;
-        return l.assignedToEmail === user?.email || l.ownerId === user?.id;
-    });
+    // Shared organization-wide leads pool (All leads within the company reflect to sales & admin)
+    const myLeads = leads;
 
     const filteredLeads = selectedStage === 'ALL'
         ? myLeads
@@ -94,6 +91,9 @@ export default function SalesDashboardView({
                     </button>
                 </div>
             </div>
+
+            {/* Live Shift & Attendance Widget */}
+            <CheckInWidget user={user} />
 
             {/* Quick Daily Tracker Callout Banner */}
             <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-[#0a1426] to-[#0a0f1d] border border-emerald-500/20 flex flex-col md:flex-row md:items-center justify-between gap-4">

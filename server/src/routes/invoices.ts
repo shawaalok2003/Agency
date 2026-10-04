@@ -13,13 +13,25 @@ const createInvoiceSchema = z.object({
 });
 
 export async function invoiceRoutes(server: FastifyInstance) {
-    // GET ALL INVOICES
+    // GET ALL INVOICES (Admin Only: "invoices are company")
     server.get('/invoices', { preHandler: [authenticate] }, async (request, reply) => {
-        const userId = (request as any).user.id;
+        const user = (request as any).user;
+        const isCompanyAdmin = user.role === 'ADMIN' || user.role === 'OWNER' || user.email === 'aalokshaw2003@gmail.com';
+        if (!isCompanyAdmin) {
+            return reply.code(403).send({ error: 'Access denied: Company invoices and billing are confidential and accessible only to Company Admin.' });
+        }
+
+        const userId = user.id;
+        const companyName = user.companyName || 'dhandaeasy';
         try {
             const invoices = await prisma.invoice.findMany({
                 where: {
-                    project: { userId }
+                    project: {
+                        OR: [
+                            { companyName },
+                            { userId }
+                        ]
+                    }
                 },
                 include: {
                     project: {
@@ -36,9 +48,13 @@ export async function invoiceRoutes(server: FastifyInstance) {
         }
     });
 
-    // CREATE INVOICE
+    // CREATE INVOICE (Admin Only)
     server.post('/invoices', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
+        const isCompanyAdmin = user.role === 'ADMIN' || user.role === 'OWNER' || user.email === 'aalokshaw2003@gmail.com';
+        if (!isCompanyAdmin) {
+            return reply.code(403).send({ error: 'Access denied: Only Company Admin can generate company invoices.' });
+        }
         const userId = user.id;
         const result = createInvoiceSchema.safeParse(request.body);
         if (!result.success) {

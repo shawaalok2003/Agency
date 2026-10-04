@@ -35,6 +35,7 @@ model Project {
   clientEmail       String?
   clientAccessParam String        @unique @default(uuid())
   userId            String
+  companyName       String?       @default("dhandaeasy")
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   status            ProjectStatus @default(ACTIVE)
@@ -43,6 +44,8 @@ model Project {
   user              User          @relation(fields: [userId], references: [id])
   scopes            Scope[]
   tasks             Task[]
+
+  @@index([companyName])
 }
 
 model Scope {
@@ -116,9 +119,12 @@ model Lead {
   notes            String?
   priority         String?    @default("MEDIUM")
   ownerId          String
+  companyName      String?    @default("dhandaeasy")
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   owner            User       @relation(fields: [ownerId], references: [id])
+
+  @@index([companyName])
 }
 
 model Contact {
@@ -256,4 +262,22 @@ model OtpVerification {
   createdAt DateTime @default(now())
 
   @@index([email])
+}
+
+model CheckIn {
+  id          String    @id @default(uuid())
+  userId      String
+  userName    String
+  userEmail   String
+  department  String    @default("SALES")
+  companyName String    @default("dhandaeasy")
+  status      String    @default("CHECKED_IN") // CHECKED_IN, CHECKED_OUT
+  checkInAt   DateTime  @default(now())
+  checkOutAt  DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([companyName, checkInAt])
+  @@index([userId, checkInAt])
 }

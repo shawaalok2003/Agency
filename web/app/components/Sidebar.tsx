@@ -51,79 +51,158 @@ export default function Sidebar({
         : 0;
 
     const userRole = (user?.role || 'OWNER').toUpperCase();
-    const isSales = userRole === 'SALES';
+    const userDept = (user?.department || (userRole === 'SALES' ? 'SALES' : (userRole === 'DEVELOPER' ? 'DEVELOPMENT' : 'MANAGEMENT'))).toUpperCase();
+    const isCompanyAdmin = userRole === 'ADMIN' || userRole === 'OWNER' || user?.email === 'aalokshaw2003@gmail.com';
+    const isSales = !isCompanyAdmin && (userDept === 'SALES' || userRole === 'SALES');
+    const isTech = !isCompanyAdmin && (userDept === 'DEVELOPMENT' || userDept === 'TECH_DEV' || userDept === 'TECH' || userRole === 'DEVELOPER');
+    const isLeadership = !isCompanyAdmin && (userDept === 'MANAGEMENT' || userDept === 'LEADERSHIP');
+    const isCreativeOrOps = !isCompanyAdmin && (userDept === 'DESIGN' || userDept === 'CREATIVE' || userDept === 'OPERATIONS' || userRole === 'DESIGNER' || userRole === 'OPERATIONS');
 
-    const navSections = isSales ? [
-        {
-            title: 'SALES WORKSPACE',
-            items: [
-                { id: 'sales_dashboard', label: 'Sales Dashboard', icon: TrendingUp },
-                { id: 'leads', label: 'My Leads Pipeline', icon: Target, badge: counts.leads },
-                { id: 'daily_tracker', label: 'Daily Task Tracker', icon: CheckSquare },
-            ]
-        },
-        {
-            title: 'TEAM & COLLABORATION',
-            items: [
-                { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
-                { id: 'team', label: 'Company Directory', icon: Users, badge: counts.team },
-            ]
-        },
-        {
-            title: 'ACCOUNT',
-            items: [
-                { id: 'settings', label: 'My Profile & Work', icon: Settings },
-            ]
-        }
-    ] : [
-        {
-            title: 'WORKSPACE',
-            items: [
-                { id: 'dashboard', label: 'Overview', icon: LayoutGrid },
-                { id: 'projects', label: 'Projects', icon: Briefcase, badge: counts.projects },
-                { id: 'tasks', label: 'Tasks & Priorities', icon: CheckSquare, badge: counts.tasks },
-                { id: 'calendar', label: 'Deadlines & Calendar', icon: Calendar },
-            ]
-        },
-        {
-            title: 'SALES & CRM',
-            items: [
-                { id: 'sales_dashboard', label: 'Sales Dashboard', icon: TrendingUp },
-                { id: 'leads', label: 'Leads Pipeline', icon: Target, badge: counts.leads },
-                { id: 'proposals', label: 'Proposals', icon: FileText },
-            ]
-        },
-        {
-            title: 'CLIENTS',
-            items: [
-                { id: 'contacts', label: 'Clients Directory', icon: Users },
-                { id: 'portal_preview', label: 'Client Portal', icon: ExternalLink, tag: 'Live' },
-            ]
-        },
-        {
-            title: 'FINANCE',
-            items: [
-                { id: 'finance', label: 'Invoices & Billing', icon: Receipt, badge: counts.invoices },
-                { id: 'payments', label: 'Payments & Ledger', icon: CreditCard },
-                { id: 'profitability', label: 'Project Margins', icon: TrendingUp },
-            ]
-        },
-        {
-            title: 'TEAM & DEPARTMENTS',
-            items: [
-                { id: 'team', label: 'Team Management', icon: UserCheck, badge: counts.team },
-                { id: 'daily_reports_feed', label: 'Daily Task Trackers', icon: ClipboardList },
-                { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
-                { id: 'approvals', label: 'Client Approvals', icon: Clock, badge: counts.approvals },
-            ]
-        },
-        {
-            title: 'SYSTEM',
-            items: [
-                { id: 'settings', label: 'Settings & Company', icon: Settings },
-            ]
-        }
-    ];
+    let navSections: any[] = [];
+
+    if (isCompanyAdmin) {
+        navSections = [
+            {
+                title: 'WORKSPACE',
+                items: [
+                    { id: 'dashboard', label: 'Overview', icon: LayoutGrid },
+                    { id: 'projects', label: 'Projects', icon: Briefcase, badge: counts.projects },
+                    { id: 'tasks', label: 'Tasks & Priorities', icon: CheckSquare, badge: counts.tasks },
+                    { id: 'calendar', label: 'Deadlines & Calendar', icon: Calendar },
+                ]
+            },
+            {
+                title: 'SALES & CRM',
+                items: [
+                    { id: 'sales_dashboard', label: 'Sales Dashboard', icon: TrendingUp },
+                    { id: 'leads', label: 'Leads Pipeline', icon: Target, badge: counts.leads },
+                    { id: 'proposals', label: 'Proposals', icon: FileText },
+                ]
+            },
+            {
+                title: 'CLIENTS',
+                items: [
+                    { id: 'contacts', label: 'Clients Directory', icon: Users },
+                    { id: 'portal_preview', label: 'Client Portal', icon: ExternalLink, tag: 'Live' },
+                ]
+            },
+            {
+                title: 'FINANCE (COMPANY)',
+                items: [
+                    { id: 'finance', label: 'Invoices & Billing', icon: Receipt, badge: counts.invoices },
+                    { id: 'payments', label: 'Payments & Ledger', icon: CreditCard },
+                    { id: 'profitability', label: 'Project Margins', icon: TrendingUp },
+                ]
+            },
+            {
+                title: 'TEAM & ATTENDANCE',
+                items: [
+                    { id: 'team', label: 'Team Management', icon: UserCheck, badge: counts.team },
+                    { id: 'attendance', label: 'Live Attendance & Check-Ins', icon: Clock },
+                    { id: 'daily_reports_feed', label: 'Daily Task Trackers', icon: ClipboardList },
+                    { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
+                    { id: 'approvals', label: 'Client Approvals', icon: Clock, badge: counts.approvals },
+                ]
+            },
+            {
+                title: 'SYSTEM',
+                items: [
+                    { id: 'settings', label: 'Settings & Company', icon: Settings },
+                ]
+            }
+        ];
+    } else if (isTech) {
+        // Tech / Dev workspace: focused on engineering, project creation, dev sprint, chat
+        navSections = [
+            {
+                title: 'TECH WORKSPACE',
+                items: [
+                    { id: 'tech_dashboard', label: 'Tech Dashboard', icon: LayoutGrid },
+                    { id: 'projects', label: 'Projects (Add / View)', icon: Briefcase, badge: counts.projects },
+                    { id: 'tasks', label: 'Sprint Tasks', icon: CheckSquare, badge: counts.tasks },
+                    { id: 'calendar', label: 'Release Deadlines', icon: Calendar },
+                    { id: 'daily_tracker', label: 'Daily Tech Tracker', icon: ClipboardList },
+                ]
+            },
+            {
+                title: 'COLLABORATION',
+                items: [
+                    { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
+                    { id: 'directory', label: 'Team Directory', icon: Users, badge: counts.team },
+                ]
+            }
+        ];
+    } else if (isLeadership) {
+        // Leadership workspace: projects, leads, approvals, daily tasks, attendance (NO invoices, NO team credentials)
+        navSections = [
+            {
+                title: 'EXECUTIVE OPERATIONS',
+                items: [
+                    { id: 'leadership_dashboard', label: 'Operations Dashboard', icon: LayoutGrid },
+                    { id: 'projects', label: 'Projects Overview', icon: Briefcase, badge: counts.projects },
+                    { id: 'tasks', label: 'Tasks & Milestones', icon: CheckSquare, badge: counts.tasks },
+                    { id: 'calendar', label: 'Operations Calendar', icon: Calendar },
+                ]
+            },
+            {
+                title: 'SALES & CLIENTS',
+                items: [
+                    { id: 'leads', label: 'Shared Leads Pipeline', icon: Target, badge: counts.leads },
+                    { id: 'contacts', label: 'Clients Directory', icon: Users },
+                    { id: 'approvals', label: 'Client Approvals', icon: Clock, badge: counts.approvals },
+                ]
+            },
+            {
+                title: 'TEAM OPERATIONS',
+                items: [
+                    { id: 'attendance', label: 'Live Team Attendance', icon: UserCheck },
+                    { id: 'daily_reports_feed', label: 'Daily Staff Trackers', icon: ClipboardList },
+                    { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
+                    { id: 'directory', label: 'Company Directory', icon: Users, badge: counts.team },
+                ]
+            }
+        ];
+    } else if (isCreativeOrOps) {
+        // Operations / Creative workspace
+        navSections = [
+            {
+                title: 'OPERATIONS WORKSPACE',
+                items: [
+                    { id: 'dashboard', label: 'Operations Overview', icon: LayoutGrid },
+                    { id: 'projects', label: 'Projects & Delivery', icon: Briefcase, badge: counts.projects },
+                    { id: 'tasks', label: 'Tasks & Milestones', icon: CheckSquare, badge: counts.tasks },
+                    { id: 'calendar', label: 'Deadlines', icon: Calendar },
+                    { id: 'daily_tracker', label: 'Daily Task Tracker', icon: CheckSquare },
+                ]
+            },
+            {
+                title: 'COLLABORATION',
+                items: [
+                    { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
+                    { id: 'directory', label: 'Team Directory', icon: Users, badge: counts.team },
+                ]
+            }
+        ];
+    } else {
+        // Sales team workspace (Default for sales representatives)
+        navSections = [
+            {
+                title: 'SALES WORKSPACE',
+                items: [
+                    { id: 'sales_dashboard', label: 'Sales Dashboard', icon: TrendingUp },
+                    { id: 'leads', label: 'Shared Leads Pipeline', icon: Target, badge: counts.leads },
+                    { id: 'daily_tracker', label: 'Daily Sales Tracker', icon: CheckSquare },
+                ]
+            },
+            {
+                title: 'COLLABORATION',
+                items: [
+                    { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
+                    { id: 'directory', label: 'Team Directory', icon: Users, badge: counts.team },
+                ]
+            }
+        ];
+    }
 
     const handleSelectView = (id: string) => {
         if (id === 'portal_preview') {
@@ -265,7 +344,7 @@ export default function Sidebar({
                             <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-gray-400 select-none">
                                 {section.title}
                             </div>
-                            {section.items.map((item) => (
+                            {section.items.map((item: any) => (
                                 <NavItem
                                     key={item.id}
                                     id={item.id}
