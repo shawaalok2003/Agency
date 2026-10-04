@@ -44,7 +44,7 @@ export default function TechDashboardView({
                         </h1>
                     </div>
                     <p className="text-xs text-gray-400 mt-1">
-                        Welcome back, <span className="text-cyan-300 font-semibold">{user?.name || user?.email}</span> • {user?.companyName || 'dhandaeasy'} Engineering Core
+                        Welcome back, <span className="text-cyan-300 font-semibold">{user?.name || user?.email}</span> • {user?.companyName || user?.email?.split('@')[0]?.toUpperCase()} Engineering Core
                     </p>
                 </div>
 

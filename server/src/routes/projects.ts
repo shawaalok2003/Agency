@@ -18,24 +18,7 @@ export async function projectRoutes(server: FastifyInstance) {
         const { name, clientEmail } = result.data;
         const user = (request as any).user;
         const userId = user.id;
-        const companyName = user.companyName || 'dhandaeasy';
-
-        // Check Limits
-        const userRec = await prisma.user.findUnique({ where: { id: userId } });
-        if (!userRec) return reply.code(401).send({ error: 'User not found' });
-
-        const isPro = userRec.plan === 'PRO';
-        const isTrialActive = userRec.trialEndsAt && new Date(userRec.trialEndsAt) > new Date();
-
-        if (!isPro && !isTrialActive) {
-            const count = await prisma.project.count({ where: { companyName } });
-            if (count >= 3) {
-                return reply.code(403).send({
-                    error: 'Free Plan Limit Reached',
-                    message: 'You have reached the limit of 3 projects on the Free Plan. Please upgrade to Pro.'
-                });
-            }
-        }
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         const project = await prisma.project.create({
             data: {
@@ -51,8 +34,7 @@ export async function projectRoutes(server: FastifyInstance) {
 
     server.get('/projects', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
-        const companyName = user.companyName || 'dhandaeasy';
-
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
         const projects = await prisma.project.findMany({
             where: {
                 OR: [
@@ -86,7 +68,7 @@ export async function projectRoutes(server: FastifyInstance) {
     server.get('/projects/:id', { preHandler: [authenticate] }, async (request, reply) => {
         const { id } = request.params as { id: string };
         const user = (request as any).user;
-        const companyName = user.companyName || 'dhandaeasy';
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         const project = await prisma.project.findFirst({
             where: {

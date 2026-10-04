@@ -11,7 +11,7 @@ export async function checkInRoutes(server: FastifyInstance) {
     // 1. Check in (Start Duty)
     server.post('/checkin', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
-        const companyName = user.companyName || 'dhandaeasy';
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
@@ -124,7 +124,7 @@ export async function checkInRoutes(server: FastifyInstance) {
     // 4. Get Company-Wide Today Check-Ins (For Admin, Leadership & Staff directory)
     server.get('/checkin/company-today', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
-        const companyName = user.companyName || 'dhandaeasy';
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);

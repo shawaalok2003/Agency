@@ -94,7 +94,7 @@ export default function DailyTrackerView({ user, onViewChange }: DailyTrackerPro
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 text-[11px] font-bold border border-indigo-500/20 uppercase tracking-wide">
-                            {user?.department || 'SALES'} • {user?.companyName || 'dhandaeasy'}
+                            {user?.department || 'SALES'} • {user?.companyName || user?.email?.split('@')[0]?.toUpperCase()}
                         </span>
                         <span className="text-gray-500 text-xs">•</span>
                         <span className="text-xs text-gray-400">Employee Activity Portal</span>
@@ -162,7 +162,7 @@ export default function DailyTrackerView({ user, onViewChange }: DailyTrackerPro
                             <span>Log Today&apos;s Work Tracker</span>
                         </h2>
                         <p className="text-xs text-gray-400 mt-0.5">
-                            Submitting this form updates the company admin (<span className="text-indigo-400">aalokshaw2003@gmail.com</span>) in real-time.
+                            Submitting this form updates the company admin in real-time.
                         </p>
                     </div>
                     <span className="text-xs font-mono font-bold px-3 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">

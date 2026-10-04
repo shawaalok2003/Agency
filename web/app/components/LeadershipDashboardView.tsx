@@ -48,7 +48,7 @@ export default function LeadershipDashboardView({
                         </h1>
                     </div>
                     <p className="text-xs text-gray-400 mt-1">
-                        Operations leadership for <span className="text-indigo-300 font-semibold">{user?.companyName || 'dhandaeasy'}</span> • Cross-department oversight
+                        Operations leadership for <span className="text-indigo-300 font-semibold">{user?.companyName || user?.email?.split('@')[0]?.toUpperCase()}</span> • Cross-department oversight
                     </p>
                 </div>
 

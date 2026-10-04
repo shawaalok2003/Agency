@@ -16,7 +16,7 @@ export async function messageRoutes(server: FastifyInstance) {
         const user = (request as any).user;
         const { channel, directWith } = request.query as { channel?: string; directWith?: string };
 
-        const companyName = user.companyName || 'dhandaeasy';
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         let where: any = {
             companyName
@@ -55,7 +55,7 @@ export async function messageRoutes(server: FastifyInstance) {
         }
 
         const { channel, content, attachmentUrl, recipientEmail } = result.data;
-        const companyName = user.companyName || 'dhandaeasy';
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         const message = await prisma.teamMessage.create({
             data: {
@@ -81,7 +81,7 @@ export async function messageRoutes(server: FastifyInstance) {
     // GET /messages/team-directory - Get list of team members and department directory for chatting
     server.get('/messages/team-directory', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
-        const companyName = user.companyName || 'dhandaeasy';
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         const [members, users] = await Promise.all([
             prisma.teamMember.findMany({

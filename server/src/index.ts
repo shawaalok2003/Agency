@@ -51,7 +51,8 @@ const buildServer = async () => {
 
     server.get('/test-email', async (request, reply) => {
         const { to } = request.query as { to?: string };
-        const target = to || 'aalokshaw2003@gmail.com';
+        if (!to) return reply.code(400).send({ error: 'Provide ?to=email param' });
+        const target = to;
         const res = await sendOtpEmail(target, '999888');
         return res;
     });

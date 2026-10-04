@@ -200,7 +200,7 @@ export default function Dashboard() {
 
     const userRole = (user?.role || 'OWNER').toUpperCase();
     const userDept = (user?.department || (userRole === 'SALES' ? 'SALES' : (userRole === 'DEVELOPER' ? 'DEVELOPMENT' : 'MANAGEMENT'))).toUpperCase();
-    const isCompanyAdmin = userRole === 'ADMIN' || userRole === 'OWNER' || user?.email === 'aalokshaw2003@gmail.com';
+    const isCompanyAdmin = userRole === 'ADMIN' || userRole === 'OWNER';
     const isSales = !isCompanyAdmin && (userDept === 'SALES' || userRole === 'SALES');
     const isTech = !isCompanyAdmin && (userDept === 'DEVELOPMENT' || userDept === 'TECH_DEV' || userDept === 'TECH' || userRole === 'DEVELOPER');
     const isLeadership = !isCompanyAdmin && (userDept === 'MANAGEMENT' || userDept === 'LEADERSHIP');
@@ -245,7 +245,7 @@ export default function Dashboard() {
 
             const role = (currentUser?.role || 'OWNER').toUpperCase();
             const dept = (currentUser?.department || (role === 'SALES' ? 'SALES' : (role === 'DEVELOPER' ? 'DEVELOPMENT' : 'MANAGEMENT'))).toUpperCase();
-            const isCompanyAdmin = role === 'ADMIN' || role === 'OWNER' || currentUser?.email === 'aalokshaw2003@gmail.com';
+            const isCompanyAdmin = role === 'ADMIN' || role === 'OWNER';
 
             if (!isCompanyAdmin) {
                 if (dept === 'SALES' || role === 'SALES') {
@@ -2679,7 +2679,7 @@ export default function Dashboard() {
                                             <input
                                                 required
                                                 type="email"
-                                                placeholder="rep@agency.com"
+                                                placeholder="team@company.com"
                                                 value={formData.email || ''}
                                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                                 className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
@@ -2689,7 +2689,7 @@ export default function Dashboard() {
                                             <label className="text-xs text-gray-400 block mb-1">Phone / WhatsApp</label>
                                             <input
                                                 type="tel"
-                                                placeholder="+91 98765 43210"
+                                                placeholder="+91 XXXXX XXXXX"
                                                 value={formData.phone || ''}
                                                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                                 className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"

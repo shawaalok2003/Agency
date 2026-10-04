@@ -71,10 +71,10 @@ export default function DailyReportsAdminFeed({ user, onViewChange }: DailyRepor
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 text-[11px] font-bold border border-cyan-500/20 uppercase tracking-wide flex items-center gap-1">
-                            <ShieldCheck size={13} /> COMPANY ADMIN OVERSIGHT • {user?.companyName || 'dhandaeasy'}
+                            <ShieldCheck size={13} /> COMPANY ADMIN OVERSIGHT • {user?.companyName || user?.email?.split('@')[0]?.toUpperCase()}
                         </span>
                         <span className="text-gray-500 text-xs">•</span>
-                        <span className="text-xs text-gray-400 font-mono">aalokshaw2003@gmail.com</span>
+                        <span className="text-xs text-gray-400 font-mono">{user?.email}</span>
                     </div>
                     <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2">
                         <ClipboardList className="text-indigo-400" /> Team Daily Task Trackers &amp; Work Updates

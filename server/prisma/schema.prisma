@@ -13,11 +13,11 @@ model User {
   email              String        @unique
   passwordHash       String
   role               Role          @default(TEAM_MEMBER)
-  companyName        String?       @default("dhandaeasy")
+  companyName        String?
   department         String?       @default("MANAGEMENT")
   phone              String?
   loginPassword      String?
-  plan               Plan          @default(FREE)
+  plan               Plan          @default(PRO)
   trialEndsAt        DateTime?
   stripeCustomerId   String?
   subscriptionStatus String?
@@ -35,7 +35,7 @@ model Project {
   clientEmail       String?
   clientAccessParam String        @unique @default(uuid())
   userId            String
-  companyName       String?       @default("dhandaeasy")
+  companyName       String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   status            ProjectStatus @default(ACTIVE)
@@ -119,7 +119,7 @@ model Lead {
   notes            String?
   priority         String?    @default("MEDIUM")
   ownerId          String
-  companyName      String?    @default("dhandaeasy")
+  companyName      String?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   owner            User       @relation(fields: [ownerId], references: [id])
@@ -150,7 +150,7 @@ model TeamMember {
   phone            String?
   loginPassword    String?
   status           String   @default("ACTIVE")
-  companyName      String?  @default("dhandaeasy")
+  companyName      String?
   projectsCount    Int      @default(0)
   leadsAssigned    Int      @default(0)
   dealsClosed      Int      @default(0)
@@ -214,7 +214,7 @@ model TeamMessage {
   recipientEmail   String?
   content          String
   attachmentUrl    String?
-  companyName      String   @default("dhandaeasy")
+  companyName      String
   createdAt        DateTime @default(now())
 }
 
@@ -238,6 +238,7 @@ enum InvoiceStatus {
 enum Plan {
   FREE
   PRO
+  UNLIMITED
 }
 
 enum ProjectStatus {
@@ -270,7 +271,7 @@ model CheckIn {
   userName    String
   userEmail   String
   department  String    @default("SALES")
-  companyName String    @default("dhandaeasy")
+  companyName String
   status      String    @default("CHECKED_IN") // CHECKED_IN, CHECKED_OUT
   checkInAt   DateTime  @default(now())
   checkOutAt  DateTime?

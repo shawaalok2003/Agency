@@ -20,7 +20,7 @@ export async function leadRoutes(server: FastifyInstance) {
     // GET ALL LEADS (Shared organization-wide between Admin, Sales & Leadership)
     server.get('/leads', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
-        const companyName = user.companyName || 'dhandaeasy';
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         // Organization-wide visibility: all authorized team members in company see shared leads
         const leads = await prisma.lead.findMany({
@@ -39,7 +39,7 @@ export async function leadRoutes(server: FastifyInstance) {
     server.post('/leads', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
         const userId = user.id;
-        const companyName = user.companyName || 'dhandaeasy';
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
         const result = createLeadSchema.safeParse(request.body);
         if (!result.success) {
             console.error('LEAD VALIDATION FAILED:', result.error);

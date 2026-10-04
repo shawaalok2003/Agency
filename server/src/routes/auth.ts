@@ -9,7 +9,7 @@ const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8),
     name: z.string().optional(),
-    companyName: z.string().default('dhandaeasy'),
+    companyName: z.string().optional(),
     role: z.enum(['OWNER', 'ADMIN', 'SALES', 'DEVELOPER', 'DESIGNER', 'OPERATIONS', 'TEAM_MEMBER']).default('OWNER'),
     department: z.string().default('MANAGEMENT'),
 });
@@ -56,8 +56,9 @@ export async function authRoutes(server: FastifyInstance) {
                 email: normalizedEmail,
                 passwordHash: hashedPassword,
                 role: role as any,
-                companyName: companyName || 'dhandaeasy',
+                companyName: companyName || normalizedEmail.split('@')[1]?.split('.')[0] || normalizedEmail.split('@')[0],
                 department: department || (role === 'SALES' ? 'SALES' : 'MANAGEMENT'),
+                plan: 'PRO',
                 trialEndsAt: trialDate,
             },
         });
@@ -105,22 +106,24 @@ export async function authRoutes(server: FastifyInstance) {
             return reply.code(401).send({ error: 'Invalid email or password' });
         }
 
-        // Auto-assign companyName dhandaeasy if missing
-        if (!user.companyName && (user.email === 'aalokshaw2003@gmail.com' || user.role === 'OWNER')) {
+        // Auto-assign companyName from email domain if missing
+        if (!user.companyName && user.role === 'OWNER') {
+            const derivedCompany = user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
             await prisma.user.update({
                 where: { id: user.id },
-                data: { companyName: 'dhandaeasy', role: 'ADMIN' }
+                data: { companyName: derivedCompany, role: 'ADMIN', plan: 'PRO' }
             });
-            user.companyName = 'dhandaeasy';
+            user.companyName = derivedCompany;
             user.role = 'ADMIN' as any;
         }
 
+        const resolvedCompany = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
         const token = signToken({
             id: user.id,
             email: user.email,
             name: user.name || user.email.split('@')[0],
             role: user.role,
-            companyName: user.companyName || 'dhandaeasy',
+            companyName: resolvedCompany,
             department: user.department || 'MANAGEMENT',
         });
 
@@ -131,7 +134,7 @@ export async function authRoutes(server: FastifyInstance) {
                 email: user.email,
                 name: user.name || user.email.split('@')[0],
                 role: user.role,
-                companyName: user.companyName || 'dhandaeasy',
+                companyName: resolvedCompany,
                 department: user.department || 'MANAGEMENT',
                 plan: user.plan,
                 trialEndsAt: user.trialEndsAt,
@@ -164,12 +167,12 @@ export async function authRoutes(server: FastifyInstance) {
         const normalizedEmail = email.toLowerCase().trim();
 
         const passwordHash = await bcrypt.hash(password, 10);
-        const companyName = caller.companyName || 'dhandaeasy';
+        const companyName = caller.companyName || caller.email.split('@')[1]?.split('.')[0] || caller.email.split('@')[0];
 
         // Check if user already exists
         const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
         if (existing) {
-            if (existing.role === 'OWNER' || existing.email === 'aalokshaw2003@gmail.com') {
+            if (existing.role === 'OWNER') {
                 return reply.code(400).send({ error: `Cannot overwrite primary Company Admin account` });
             }
 
@@ -236,7 +239,7 @@ export async function authRoutes(server: FastifyInstance) {
                 department,
                 companyName,
                 phone,
-                plan: 'PRO', // Inherit company pro access
+                plan: 'PRO',
             }
         });
 

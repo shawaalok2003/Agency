@@ -52,7 +52,7 @@ export default function Sidebar({
 
     const userRole = (user?.role || 'OWNER').toUpperCase();
     const userDept = (user?.department || (userRole === 'SALES' ? 'SALES' : (userRole === 'DEVELOPER' ? 'DEVELOPMENT' : 'MANAGEMENT'))).toUpperCase();
-    const isCompanyAdmin = userRole === 'ADMIN' || userRole === 'OWNER' || user?.email === 'aalokshaw2003@gmail.com';
+    const isCompanyAdmin = userRole === 'ADMIN' || userRole === 'OWNER';
     const isSales = !isCompanyAdmin && (userDept === 'SALES' || userRole === 'SALES');
     const isTech = !isCompanyAdmin && (userDept === 'DEVELOPMENT' || userDept === 'TECH_DEV' || userDept === 'TECH' || userRole === 'DEVELOPER');
     const isLeadership = !isCompanyAdmin && (userDept === 'MANAGEMENT' || userDept === 'LEADERSHIP');
@@ -440,7 +440,7 @@ export default function Sidebar({
                                 </div>
                                 <div className="text-[10px] text-indigo-400 font-semibold truncate flex items-center gap-1">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                                    <span>{user.companyName || 'dhandaeasy'}</span>
+                                    <span>{user.companyName || user.email?.split('@')[0]}</span>
                                     <span>•</span>
                                     <span className="uppercase text-[9px] px-1 py-0.2 rounded bg-indigo-500/20 text-indigo-300">
                                         {user.role || 'ADMIN'}

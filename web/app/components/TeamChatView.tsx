@@ -110,7 +110,7 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
                         <MessageSquare className="text-indigo-400" /> Inter-Department Team Collaboration
                     </h1>
                     <p className="text-xs text-gray-400 mt-0.5">
-                        Connected workspace for {user?.companyName || 'dhandaeasy'} • Cross-department chat &amp; direct messages.
+                        Connected workspace for {user?.companyName || user?.email?.split('@')[0]} • Cross-department chat &amp; direct messages.
                     </p>
                 </div>
             </div>
@@ -127,7 +127,7 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="text-xs font-bold text-white uppercase tracking-wider truncate">
-                                    {user?.companyName || 'dhandaeasy'}
+                                    {user?.companyName || user?.email?.split('@')[0]}
                                 </div>
                                 <div className="text-[10px] text-gray-500">Live Team Channels</div>
                             </div>

@@ -61,7 +61,7 @@ export default function SalesDashboardView({
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[11px] font-bold border border-emerald-500/20 uppercase tracking-wide">
-                            {user?.department || 'SALES'} DEPARTMENT • {user?.companyName || 'dhandaeasy'}
+                            {user?.department || 'SALES'} DEPARTMENT • {user?.companyName || user?.email?.split('@')[0]?.toUpperCase()}
                         </span>
                         <span className="text-gray-500 text-xs">•</span>
                         <span className="text-xs text-gray-400 font-medium">Logged in as {user?.name || user?.email}</span>
@@ -104,7 +104,7 @@ export default function SalesDashboardView({
                     <div>
                         <h3 className="font-bold text-white text-sm">Keep Company Admin Updated</h3>
                         <p className="text-xs text-gray-300 mt-0.5 max-w-xl">
-                            All your daily calls, meetings, leads contacted, and deal milestones are automatically synced in real-time to the Company Admin dashboard (<span className="text-emerald-300 font-mono">dhandaeasy</span>).
+                            All your daily calls, meetings, leads contacted, and deal milestones are automatically synced in real-time to the Company Admin dashboard (<span className="text-emerald-300 font-mono">{user?.companyName || 'your company'}</span>).
                         </p>
                     </div>
                 </div>
