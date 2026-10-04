@@ -391,10 +391,15 @@ export default function Dashboard() {
     const handleDeleteProject = async (projectId: string) => {
         if (confirm('Are you sure you want to delete this project and all its tasks, deliverables, and invoices?')) {
             try {
+                // Optimistic UI update
+                setProjects(prev => prev.filter(p => p.id !== projectId));
                 await api.delete(`/projects/${projectId}`);
-                refreshAllData();
-            } catch (e) {
-                alert('Failed to delete project');
+                await refreshAllData();
+            } catch (err: any) {
+                console.error('[Delete Project Error]', err);
+                const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to delete project';
+                alert(errorMsg);
+                await refreshAllData();
             }
         }
     };
@@ -1540,11 +1545,16 @@ export default function Dashboard() {
                                                     {p.name.charAt(0)}
                                                 </div>
                                                 <button
-                                                    onClick={() => handleDeleteProject(p.id)}
-                                                    className="text-gray-600 hover:text-red-400 p-1"
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        handleDeleteProject(p.id);
+                                                    }}
+                                                    className="text-gray-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors"
                                                     title="Delete Project"
                                                 >
-                                                    <Trash2 size={14} />
+                                                    <Trash2 size={15} />
                                                 </button>
                                             </div>
                                             <Link href={`/projects/${p.id}`}>

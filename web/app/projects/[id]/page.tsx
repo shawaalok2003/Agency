@@ -234,6 +234,19 @@ export default function ProjectDetails() {
         alert('Client Access Link copied to clipboard!');
     };
 
+    const handleDeleteProject = async () => {
+        if (!project) return;
+        if (confirm(`Are you sure you want to delete "${project.name}" and all its tasks, deliverables, and invoices?`)) {
+            try {
+                await api.delete(`/projects/${project.id}`);
+                router.push('/?view=projects');
+            } catch (err: any) {
+                const msg = err.response?.data?.error || err.response?.data?.message || 'Failed to delete project';
+                alert(msg);
+            }
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center">
@@ -319,6 +332,14 @@ export default function ProjectDetails() {
                             >
                                 <ExternalLink size={14} /> Preview Portal
                             </Link>
+                            <button
+                                type="button"
+                                onClick={handleDeleteProject}
+                                className="flex items-center gap-1.5 px-3.5 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold transition-all shadow-sm"
+                                title="Delete Project"
+                            >
+                                <Trash2 size={14} /> Delete Project
+                            </button>
                         </div>
                     </div>
 

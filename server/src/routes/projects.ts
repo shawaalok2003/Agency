@@ -112,22 +112,58 @@ export async function projectRoutes(server: FastifyInstance) {
     });
 
     server.delete('/projects/:id', { preHandler: [authenticate] }, async (request, reply) => {
-        const { id } = request.params as { id: string };
-        const userId = (request as any).user.id;
+        try {
+            const { id } = request.params as { id: string };
+            const userId = (request as any).user?.id;
+            const userRole = (request as any).user?.role;
 
-        const project = await prisma.project.findFirst({ where: { id, userId } });
-        if (!project) return reply.code(404).send({ error: 'Project not found' });
+            // Find project: OWNER can delete any project, otherwise user must own it
+            const project = await prisma.project.findFirst({
+                where: userRole === 'OWNER' ? { id } : { id, userId }
+            });
+            if (!project) {
+                return reply.code(404).send({ error: 'Project not found or you do not have permission to delete it.' });
+            }
 
-        // Clean up project relations
-        await prisma.subtask.deleteMany({ where: { task: { projectId: id } } });
-        await prisma.task.deleteMany({ where: { projectId: id } });
-        await prisma.approvalAuditLog.deleteMany({ where: { deliverable: { projectId: id } } });
-        await prisma.deliverable.deleteMany({ where: { projectId: id } });
-        await prisma.scope.deleteMany({ where: { projectId: id } });
-        await prisma.payment.deleteMany({ where: { invoice: { projectId: id } } });
-        await prisma.invoice.deleteMany({ where: { projectId: id } });
-        await prisma.project.delete({ where: { id } });
+            // Clean up project relations safely inside a transaction
+            await prisma.$transaction(async (tx) => {
+                // 1. Tasks and subtasks
+                const tasks = await tx.task.findMany({ where: { projectId: id }, select: { id: true } });
+                const taskIds = tasks.map(t => t.id);
+                if (taskIds.length > 0) {
+                    await tx.subtask.deleteMany({ where: { taskId: { in: taskIds } } });
+                    await tx.task.deleteMany({ where: { id: { in: taskIds } } });
+                }
 
-        return { success: true };
+                // 2. Deliverables and approval audit logs
+                const deliverables = await tx.deliverable.findMany({ where: { projectId: id }, select: { id: true } });
+                const deliverableIds = deliverables.map(d => d.id);
+                if (deliverableIds.length > 0) {
+                    await tx.approvalAuditLog.deleteMany({ where: { deliverableId: { in: deliverableIds } } });
+                    await tx.deliverable.deleteMany({ where: { id: { in: deliverableIds } } });
+                }
+
+                // 3. Invoices and payments
+                const invoices = await tx.invoice.findMany({ where: { projectId: id }, select: { id: true } });
+                const invoiceIds = invoices.map(i => i.id);
+                if (invoiceIds.length > 0) {
+                    await tx.payment.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+                    await tx.invoice.deleteMany({ where: { id: { in: invoiceIds } } });
+                }
+
+                // 4. Scopes
+                await tx.scope.deleteMany({ where: { projectId: id } });
+
+                // 5. Finally delete the project
+                await tx.project.delete({ where: { id } });
+            });
+
+            return { success: true, message: 'Project and all related data deleted successfully' };
+        } catch (error: any) {
+            console.error('[Delete Project Error]', error);
+            return reply.code(500).send({
+                error: error.message || 'Failed to delete project. Please try again.'
+            });
+        }
     });
 }
