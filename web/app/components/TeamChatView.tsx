@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     MessageSquare, Send, Hash, Users, User, ShieldCheck,
-    Clock, RefreshCw, Paperclip, CheckCheck, Smile
+    Clock, RefreshCw, Paperclip, CheckCheck, Smile, Trash2
 } from 'lucide-react';
 import { api } from '@/src/api/client';
 
@@ -22,6 +22,9 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
     const [activeChannel, setActiveChannel] = useState<string>('general');
     const [activeDirectUser, setActiveDirectUser] = useState<any | null>(null);
+    const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
+    const isAdmin = user?.role === 'ADMIN' || user?.role === 'OWNER';
 
     const [messages, setMessages] = useState<any[]>([]);
     const [messageInput, setMessageInput] = useState('');
@@ -54,6 +57,20 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
             }
         } catch (err) {
             console.error('Failed to load team directory:', err);
+        }
+    };
+
+    const handleDeleteUser = async (member: any) => {
+        if (!window.confirm(`Permanently delete user "${member.name || member.email}"?\nThis cannot be undone.`)) return;
+        setDeletingUserId(member.id);
+        try {
+            await api.delete(`/auth/users/${member.id}`);
+            setTeamMembers(prev => prev.filter(m => m.id !== member.id));
+            if (activeDirectUser?.id === member.id) setActiveDirectUser(null);
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Failed to delete user.');
+        } finally {
+            setDeletingUserId(null);
         }
     };
 
@@ -123,7 +140,7 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
                         {/* Company Badge */}
                         <div className="flex items-center gap-2 pb-3 border-b border-white/[0.06]">
                             <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center font-bold text-xs">
-                                DE
+                                {(user?.companyName || user?.email || 'DE').substring(0, 2).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
                                 <div className="text-xs font-bold text-white uppercase tracking-wider truncate">
@@ -176,31 +193,48 @@ export default function TeamChatView({ user }: TeamChatViewProps) {
                                 <div className="space-y-1">
                                     {teamMembers.map((member) => {
                                         const isActive = activeDirectUser?.email === member.email;
+                                        const isDeleting = deletingUserId === member.id;
                                         return (
-                                            <button
+                                            <div
                                                 key={member.id || member.email}
-                                                onClick={() => {
-                                                    setActiveDirectUser(member);
-                                                }}
-                                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all ${
+                                                className={`group w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all ${
                                                     isActive
-                                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25 font-bold'
+                                                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                                                         : 'text-gray-300 hover:text-white hover:bg-white/[0.04]'
                                                 }`}
                                             >
-                                                <div className="relative">
-                                                    <div className="w-6 h-6 rounded-lg bg-white/10 text-white flex items-center justify-center text-[10px] font-bold">
-                                                        {(member.name || member.email).charAt(0).toUpperCase()}
+                                                <button
+                                                    onClick={() => setActiveDirectUser(member)}
+                                                    className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+                                                >
+                                                    <div className="relative shrink-0">
+                                                        <div className="w-6 h-6 rounded-lg bg-white/10 text-white flex items-center justify-center text-[10px] font-bold">
+                                                            {(member.name || member.email).charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-[#060a14]"></span>
                                                     </div>
-                                                    <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-1 ring-[#060a14]"></span>
-                                                </div>
-                                                <div className="min-w-0 text-left flex-1">
-                                                    <div className="truncate font-medium">{member.name || member.email.split('@')[0]}</div>
-                                                    <div className="text-[9px] text-gray-400 uppercase truncate">
-                                                        {member.department || member.role}
+                                                    <div className="min-w-0 text-left flex-1">
+                                                        <div className="truncate font-medium">{member.name || member.email.split('@')[0]}</div>
+                                                        <div className="text-[9px] text-gray-400 uppercase truncate">
+                                                            {member.department || member.role}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </button>
+                                                </button>
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDeleteUser(member); }}
+                                                        disabled={isDeleting}
+                                                        title={`Delete ${member.name || member.email}`}
+                                                        className={`shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all ${
+                                                            isDeleting
+                                                                ? 'opacity-100 cursor-wait'
+                                                                : 'hover:bg-red-500/20 hover:text-red-400 text-gray-500'
+                                                        }`}
+                                                    >
+                                                        <Trash2 size={11} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         );
                                     })}
                                 </div>

@@ -317,4 +317,57 @@ export async function authRoutes(server: FastifyInstance) {
 
         return user;
     });
+
+    // 7. Admin: Delete any User account (non-owner) and all their data
+    server.delete('/auth/users/:id', { preHandler: [authenticate] }, async (request, reply) => {
+        const caller = (request as any).user;
+        if (caller.role !== 'ADMIN' && caller.role !== 'OWNER') {
+            return reply.code(403).send({ error: 'Access denied: Only Company Admin can delete user accounts.' });
+        }
+
+        const { id } = request.params as { id: string };
+
+        const target = await prisma.user.findUnique({ where: { id } });
+        if (!target) return reply.code(404).send({ error: 'User not found' });
+
+        if (target.role === 'OWNER') {
+            return reply.code(403).send({ error: 'Cannot delete the primary Owner account.' });
+        }
+
+        if (target.id === caller.id) {
+            return reply.code(400).send({ error: 'You cannot delete your own account.' });
+        }
+
+        // Cascade delete associated records
+        await prisma.dailyReport.deleteMany({ where: { userId: id } }).catch(() => {});
+        await prisma.lead.deleteMany({ where: { ownerId: id } }).catch(() => {});
+        await prisma.contact.deleteMany({ where: { userId: id } }).catch(() => {});
+        await prisma.teamMember.deleteMany({ where: { email: target.email } }).catch(() => {});
+        await prisma.user.delete({ where: { id } });
+
+        return { success: true, message: `User ${target.name || target.email} removed permanently.` };
+    });
+
+    // 8. Admin: List all users in the same company
+    server.get('/auth/users', { preHandler: [authenticate] }, async (request, reply) => {
+        const caller = (request as any).user;
+        if (caller.role !== 'ADMIN' && caller.role !== 'OWNER') {
+            return reply.code(403).send({ error: 'Access denied.' });
+        }
+        const companyName = caller.companyName;
+        const users = await prisma.user.findMany({
+            where: companyName ? { companyName } : {},
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+                department: true,
+                companyName: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        return users;
+    });
 }
