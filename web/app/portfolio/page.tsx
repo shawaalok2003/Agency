@@ -913,7 +913,7 @@ export default function PortfolioShowcasePage() {
 
                                 <div className="space-y-4">
                                     <a
-                                        href="https://wa.me/919147384054"
+                                        href="https://wa.me/916290529857"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="glass p-4 rounded-2xl border border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all flex items-center gap-4 group"
@@ -926,7 +926,7 @@ export default function PortfolioShowcasePage() {
                                                 WhatsApp Chat / Direct Line
                                             </span>
                                             <span className="text-base font-bold text-white group-hover:text-emerald-300 transition-colors">
-                                                +91 9147384054
+                                                +91 6290529857
                                             </span>
                                         </div>
                                         <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 ml-auto transition-colors" />
@@ -1010,7 +1010,7 @@ export default function PortfolioShowcasePage() {
                                             </label>
                                             <input
                                                 type="tel"
-                                                placeholder="+91 9147384054"
+                                                placeholder="+91 6290529857"
                                                 value={contactFormData.phone}
                                                 onChange={e => setContactFormData({ ...contactFormData, phone: e.target.value })}
                                                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
@@ -1070,7 +1070,7 @@ export default function PortfolioShowcasePage() {
                         <Link href="/workflow" className="hover:text-slate-300 transition-colors">Workflow</Link>
                         <Link href="/features" className="hover:text-slate-300 transition-colors">Features</Link>
                         <Link href="/pricing" className="hover:text-slate-300 transition-colors">Pricing</Link>
-                        <a href="https://wa.me/919147384054" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors">WhatsApp</a>
+                        <a href="https://wa.me/916290529857" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors">WhatsApp</a>
                     </div>
                 </div>
             </footer>
