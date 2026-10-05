@@ -20,6 +20,7 @@ const tasks_1 = require("./routes/tasks");
 const invoices_1 = require("./routes/invoices");
 const dailyReports_1 = require("./routes/dailyReports");
 const messages_1 = require("./routes/messages");
+const checkins_1 = require("./routes/checkins");
 const emailService_1 = require("./services/emailService");
 const buildServer = async () => {
     const server = (0, fastify_1.default)({
@@ -43,12 +44,15 @@ const buildServer = async () => {
     server.register(invoices_1.invoiceRoutes);
     server.register(dailyReports_1.dailyReportRoutes);
     server.register(messages_1.messageRoutes);
+    server.register(checkins_1.checkInRoutes);
     server.get('/health', async () => {
         return { status: 'ok' };
     });
     server.get('/test-email', async (request, reply) => {
         const { to } = request.query;
-        const target = to || 'aalokshaw2003@gmail.com';
+        if (!to)
+            return reply.code(400).send({ error: 'Provide ?to=email param' });
+        const target = to;
         const res = await (0, emailService_1.sendOtpEmail)(target, '999888');
         return res;
     });

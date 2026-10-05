@@ -221,4 +221,98 @@ export async function leadRoutes(server: FastifyInstance) {
         await prisma.lead.delete({ where: { id } });
         return { success: true };
     });
+
+    // PUBLIC: Submit Quote Request / Contact Lead from Showcase page
+    server.post('/public/quote-request', async (request, reply) => {
+        const quoteSchema = z.object({
+            name: z.string().min(1, 'Name is required'),
+            email: z.string().email('Valid email is required'),
+            phone: z.string().optional(),
+            company: z.string().optional(),
+            projectType: z.string().default('Custom Web Application'),
+            budget: z.coerce.number().default(50000),
+            timeline: z.string().optional(),
+            notes: z.string().optional(),
+            services: z.array(z.string()).optional()
+        });
+
+        const result = quoteSchema.safeParse(request.body);
+        if (!result.success) {
+            return reply.code(400).send({ error: result.error.errors[0]?.message || 'Invalid quote request data' });
+        }
+
+        const data = result.data;
+
+        // Find primary company owner
+        let owner = await prisma.user.findFirst({
+            where: {
+                role: 'OWNER',
+                companyName: 'dhandaeasy'
+            }
+        });
+
+        if (!owner) {
+            owner = await prisma.user.findFirst({
+                where: {
+                    OR: [
+                        { email: 'aalokshaw2003@gmail.com' },
+                        { role: 'OWNER' },
+                        { role: 'ADMIN' }
+                    ]
+                }
+            });
+        }
+
+        if (!owner) {
+            return reply.code(500).send({ error: 'System administrator not available.' });
+        }
+
+        const leadNotes = `[Website Quote Inquiry]
+Project Type: ${data.projectType}
+Budget: ₹${data.budget.toLocaleString('en-IN')}
+Timeline: ${data.timeline || 'Flexible'}
+Services Requested: ${data.services && data.services.length > 0 ? data.services.join(', ') : 'Standard Build'}
+Client Phone: ${data.phone || 'N/A'}
+Notes: ${data.notes || 'No specific notes provided'}`;
+
+        const lead = await prisma.lead.create({
+            data: {
+                name: data.name,
+                email: data.email,
+                phone: data.phone || null,
+                company: data.company || 'Website Inquiry',
+                value: data.budget,
+                status: 'NEW',
+                priority: 'HIGH',
+                notes: leadNotes,
+                companyName: owner.companyName || 'dhandaeasy',
+                ownerId: owner.id
+            }
+        });
+
+        // Trigger email notification to Dhandaeasy founder
+        sendProcessUpdateEmail({
+            to: owner.email,
+            category: 'LEAD',
+            title: `🎯 New Quote Request from ${data.name} (₹${data.budget.toLocaleString('en-IN')})`,
+            description: `A new client has requested a custom project quote on Dhandaeasy Showcase for "${data.projectType}".`,
+            projectName: data.projectType,
+            metaDetails: [
+                { label: 'Client Name', value: data.name },
+                { label: 'Client Email', value: data.email },
+                { label: 'Phone / WhatsApp', value: data.phone || 'Not provided' },
+                { label: 'Company', value: data.company || 'Direct Client' },
+                { label: 'Estimated Budget', value: `₹${data.budget.toLocaleString('en-IN')}` },
+                { label: 'Timeline', value: data.timeline || 'Flexible' }
+            ],
+            actionText: 'View in Leads Pipeline',
+            actionUrl: 'https://www.agnecyos.in/?view=leads'
+        }).catch(err => console.error('[Quote Notification Error]', err));
+
+        return {
+            success: true,
+            leadId: lead.id,
+            message: 'Your project quote request has been submitted! Our engineering team will review and contact you within 2-4 hours.'
+        };
+    });
 }

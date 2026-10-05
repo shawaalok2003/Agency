@@ -15,35 +15,29 @@ async function projectRoutes(server) {
             return reply.code(400).send({ error: result.error });
         }
         const { name, clientEmail } = result.data;
-        const userId = request.user.id;
-        // Check Limits
-        const user = await index_1.prisma.user.findUnique({ where: { id: userId } });
-        if (!user)
-            return reply.code(401).send({ error: 'User not found' });
-        const isPro = user.plan === 'PRO';
-        const isTrialActive = user.trialEndsAt && new Date(user.trialEndsAt) > new Date();
-        if (!isPro && !isTrialActive) {
-            const count = await index_1.prisma.project.count({ where: { userId } });
-            if (count >= 3) {
-                return reply.code(403).send({
-                    error: 'Free Plan Limit Reached',
-                    message: 'You have reached the limit of 3 projects on the Free Plan. Please upgrade to Pro.'
-                });
-            }
-        }
+        const user = request.user;
+        const userId = user.id;
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
         const project = await index_1.prisma.project.create({
             data: {
                 name,
                 clientEmail,
                 userId,
+                companyName,
             },
         });
         return project;
     });
     server.get('/projects', { preHandler: [auth_1.authenticate] }, async (request, reply) => {
-        const userId = request.user.id;
+        const user = request.user;
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
         const projects = await index_1.prisma.project.findMany({
-            where: { userId },
+            where: {
+                OR: [
+                    { companyName },
+                    { userId: user.id }
+                ]
+            },
             orderBy: { updatedAt: 'desc' },
             include: {
                 invoices: true,
@@ -68,9 +62,16 @@ async function projectRoutes(server) {
     });
     server.get('/projects/:id', { preHandler: [auth_1.authenticate] }, async (request, reply) => {
         const { id } = request.params;
-        const userId = request.user.id;
+        const user = request.user;
+        const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
         const project = await index_1.prisma.project.findFirst({
-            where: { id, userId },
+            where: {
+                id,
+                OR: [
+                    { companyName },
+                    { userId: user.id }
+                ]
+            },
             include: {
                 scopes: true,
                 deliverables: {

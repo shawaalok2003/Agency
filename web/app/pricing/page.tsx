@@ -52,6 +52,7 @@ export default function PricingPage() {
                         <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
                     </Link>
                     <div className="hidden md:flex items-center gap-8">
+                        <Link href="/portfolio" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Showcase</Link>
                         <Link href="/workflow" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Workflow</Link>
                         <Link href="/features" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Features</Link>
                         <Link href="/pricing" className="text-white text-sm font-medium transition-colors">Pricing</Link>

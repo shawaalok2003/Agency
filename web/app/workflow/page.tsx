@@ -54,6 +54,7 @@ export default function WorkflowPage() {
                         </Link>
                     </div>
                     <div className="hidden md:flex items-center gap-8">
+                        <Link href="/portfolio" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Showcase</Link>
                         <Link href="/workflow" className="text-white text-sm font-medium transition-colors">Workflow</Link>
                         <Link href="/features" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Features</Link>
                         <Link href="/pricing" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Pricing</Link>

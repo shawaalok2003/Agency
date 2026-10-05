@@ -45,6 +45,10 @@ export default function LandingPage() {
                         <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
                     </Link>
                     <div className="hidden md:flex items-center gap-8">
+                        <Link href="/portfolio" className="text-white hover:text-indigo-300 text-sm font-bold flex items-center gap-1.5 transition-colors">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                            Projects Showcase
+                        </Link>
                         <Link href="/workflow" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Workflow</Link>
                         <Link href="/features" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Features</Link>
                         <Link href="/pricing" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Pricing</Link>
@@ -81,9 +85,12 @@ export default function LandingPage() {
                                     Start 14-Day Free Trial
                                 </button>
                             </Link>
-                            <button className="px-8 py-4 glass text-white font-bold rounded-2xl hover:bg-white/5 transition-all flex items-center justify-center gap-2 w-full sm:w-auto border border-white/10 hover:border-white/20">
-                                Book a Demo
-                            </button>
+                            <Link href="/portfolio">
+                                <button className="px-8 py-4 glass text-white font-bold rounded-2xl hover:bg-white/5 transition-all flex items-center justify-center gap-2 w-full sm:w-auto border border-white/10 hover:border-white/20">
+                                    <span>View Client Projects</span>
+                                    <span className="text-xs text-indigo-400 font-mono">→</span>
+                                </button>
+                            </Link>
                         </div>
                     </div>
                     <div className="relative group mt-12 lg:mt-0 animate-fade-in-up delay-300">
