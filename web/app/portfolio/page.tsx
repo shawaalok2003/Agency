@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
     ExternalLink, Code2, ShieldCheck, CheckCircle2, ArrowRight,
     Sparkles, Flame, Users, Briefcase, Globe, Phone, Mail,
-    MessageSquare, Clock, Send, Check, Calculator, ChevronRight,
+    MessageSquare, Clock, Send, Check, ChevronRight,
     Star, ArrowUpRight, Award, Layers, Zap, Building2, BookOpen, Camera,
     X, Maximize2, Palette, Cpu, FileCheck2, GraduationCap
 } from 'lucide-react';
@@ -18,24 +18,6 @@ export default function PortfolioShowcasePage() {
     // Active project tab filter
     const [activeCategory, setActiveCategory] = useState<string>('ALL');
 
-    // Quote Request State (No prices / Bespoke Scope Builder)
-    const [selectedProjectTier, setSelectedProjectTier] = useState<string>('corporate');
-    const [selectedModules, setSelectedModules] = useState<string[]>(['portal', 'whatsapp']);
-    const [selectedTimeline, setSelectedTimeline] = useState<string>('standard');
-    const [selectedScopeScale, setSelectedScopeScale] = useState<string>('growth');
-
-    // Quote Form Inputs
-    const [quoteFormData, setQuoteFormData] = useState({
-        name: '',
-        email: '',
-        phone: '',
-        company: '',
-        notes: ''
-    });
-    const [submittingQuote, setSubmittingQuote] = useState(false);
-    const [quoteSubmitted, setQuoteSubmitted] = useState(false);
-    const [quoteSuccessMsg, setQuoteSuccessMsg] = useState('');
-
     // Contact Form Inputs
     const [contactFormData, setContactFormData] = useState({
         name: '',
@@ -46,105 +28,6 @@ export default function PortfolioShowcasePage() {
     });
     const [submittingContact, setSubmittingContact] = useState(false);
     const [contactSubmitted, setContactSubmitted] = useState(false);
-
-    // Architecture Specifications (No Cost / Pure Capability)
-    const architectureOptions: Record<string, { name: string; tag: string; desc: string; icon: any; stack: string[] }> = {
-        studio: {
-            name: 'Creative Studio & Portfolio Platform',
-            tag: 'StudioCloudChild Architecture',
-            desc: 'Ultra-fast media showcase, high-res photography portfolios, interactive booking inquiries, and bespoke avant-garde visual branding.',
-            icon: Camera,
-            stack: ['React', 'Vite', 'Tailwind', 'CDN Asset Cloud']
-        },
-        corporate: {
-            name: 'Corporate Governance & Web Portal',
-            tag: 'CWC India Architecture',
-            desc: 'Statutory compliance platform, verified document vault, multi-service catalog, corporate tax/audit calculators, and 98+ Google Lighthouse score.',
-            icon: Building2,
-            stack: ['Next.js App Router', 'TypeScript', 'Node.js', 'Enterprise SEO']
-        },
-        edtech: {
-            name: 'EdTech Academy & Admission Platform',
-            tag: 'Sharkedutech Architecture',
-            desc: 'Interactive course syllabus explorer, automated student admission funnels, WhatsApp counselor routing, and placement partner showcase.',
-            icon: BookOpen,
-            stack: ['Next.js', 'PostgreSQL', 'LMS Engine', 'WhatsApp API']
-        },
-        agnecyos: {
-            name: 'AgnecyOS - Agency Operating System',
-            tag: 'Enterprise Multi-Department ERP',
-            desc: 'End-to-end client approval portal, real-time team collaboration, attendance check-in, GST invoicing, deliverable sign-offs, and CRM.',
-            icon: Layers,
-            stack: ['Next.js', 'Fastify', 'Prisma ORM', 'WebSocket / Live Chat']
-        },
-        custom: {
-            name: 'Custom SaaS & Cloud Architecture',
-            tag: 'Full-Stack Bespoke MVP',
-            desc: 'From custom database schemas to production cloud deployments with role-based authentication, background jobs, and webhook integrations.',
-            icon: Code2,
-            stack: ['Custom Microservices', 'PostgreSQL / Redis', 'Vercel / Render / AWS']
-        }
-    };
-
-    const modularFeatures = [
-        { id: 'portal', label: 'Client Approval & Review Vault', desc: 'Secure client milestone sign-off and file approval repository' },
-        { id: 'whatsapp', label: 'Automated WhatsApp Routing', desc: 'Instant counselor or sales team WhatsApp lead alerts' },
-        { id: 'invoicing', label: 'GST Invoicing & Milestone Billing', desc: 'Automated invoice generation, tax tracking & receipts' },
-        { id: 'mobile', label: 'Mobile PWA Optimization', desc: 'Installable app-like experience on iOS and Android devices' },
-        { id: 'seo', label: 'Technical Enterprise SEO Audit', desc: 'Schema markup, 95+ Core Web Vitals, and search indexation' },
-        { id: 'analytics', label: 'Executive Analytics & Telemetry', desc: 'Live visitor tracking, conversion funnels & custom dashboards' }
-    ];
-
-    const timelineOptions = [
-        { id: 'rush', label: 'Priority Sprint (2-3 Weeks)', badge: 'Fast-Track' },
-        { id: 'standard', label: 'Standard Sprint (4-6 Weeks)', badge: 'Recommended' },
-        { id: 'flexible', label: 'Phased Enterprise Rollout', badge: 'Scalable' }
-    ];
-
-    const scopeScales = [
-        { id: 'startup', label: 'Startup / MVP', desc: 'Essential core features & quick market launch' },
-        { id: 'growth', label: 'Growth / Professional', desc: 'Complete multi-page platform with full automation' },
-        { id: 'enterprise', label: 'Enterprise / Custom Scale', desc: 'Dedicated architecture, high-volume capacity & SLA' }
-    ];
-
-    const toggleModule = (id: string) => {
-        if (selectedModules.includes(id)) {
-            setSelectedModules(selectedModules.filter(m => m !== id));
-        } else {
-            setSelectedModules([...selectedModules, id]);
-        }
-    };
-
-    const handleQuoteSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setSubmittingQuote(true);
-        try {
-            const arch = architectureOptions[selectedProjectTier] || architectureOptions.corporate;
-            const timelineObj = timelineOptions.find(t => t.id === selectedTimeline);
-            const scaleObj = scopeScales.find(s => s.id === selectedScopeScale);
-
-            const payload = {
-                name: quoteFormData.name,
-                email: quoteFormData.email,
-                phone: quoteFormData.phone || undefined,
-                company: quoteFormData.company || undefined,
-                projectType: arch.name,
-                timeline: timelineObj?.label || 'Standard Sprint',
-                services: selectedModules.map(m => modularFeatures.find(f => f.id === m)?.label || m),
-                notes: `[Scope Scale]: ${scaleObj?.label || 'Professional'}\n[Client Notes]: ${quoteFormData.notes || 'None'}`
-            };
-
-            await api.post('/public/quote-request', payload);
-            setQuoteSubmitted(true);
-            setQuoteSuccessMsg('Quote request received! Our engineering team will review your project scope and contact you within 2-4 hours.');
-        } catch (err: any) {
-            console.error(err);
-            setQuoteSubmitted(true);
-            setQuoteSuccessMsg('Thank you! Your quote request has been recorded. Our team will connect with you promptly.');
-        } finally {
-            setSubmittingQuote(false);
-        }
-    };
 
     const handleContactSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -378,8 +261,8 @@ export default function PortfolioShowcasePage() {
                         <Link href="/pricing" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Pricing</Link>
                     </div>
                     <div className="flex items-center gap-4">
-                        <a href="#quote-calculator" className="hidden sm:inline-flex bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-full border border-white/15 transition-all">
-                            Request Quote
+                        <a href="#contact-us" className="hidden sm:inline-flex bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-full border border-white/15 transition-all">
+                            Contact Us
                         </a>
                         <Link href="/login">
                             <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-5 py-2 rounded-full transition-all shadow-lg shadow-indigo-500/20">
@@ -407,11 +290,8 @@ export default function PortfolioShowcasePage() {
                         <a href="#showcase" className="bg-indigo-600 hover:bg-indigo-500 text-white px-7 py-3 rounded-full text-sm font-semibold transition-all shadow-lg shadow-indigo-500/25 flex items-center gap-2">
                             Explore Projects & Galleries <ArrowRight className="w-4 h-4" />
                         </a>
-                        <a href="#quote-calculator" className="glass hover:bg-white/5 text-slate-200 px-7 py-3 rounded-full text-sm font-semibold border border-white/15 transition-all flex items-center gap-2">
-                            <Calculator className="w-4 h-4 text-emerald-400" /> Request Custom Quote
-                        </a>
                         <a href="#contact-us" className="glass hover:bg-white/5 text-slate-200 px-7 py-3 rounded-full text-sm font-semibold border border-white/15 transition-all flex items-center gap-2">
-                            <Phone className="w-4 h-4 text-sky-400" /> Contact Team
+                            <Phone className="w-4 h-4 text-emerald-400" /> Contact Team / +91 6290529857
                         </a>
                     </div>
                 </div>
@@ -464,7 +344,7 @@ export default function PortfolioShowcasePage() {
 
                 {/* Projects Showcase Cards with Dedicated Galleries & Website Styling */}
                 <div className="space-y-24 mb-32">
-                    {filteredProjects.map((project, idx) => (
+                    {filteredProjects.map((project) => (
                         <div
                             key={project.id}
                             className={`glass-card rounded-3xl p-6 sm:p-10 lg:p-12 relative overflow-hidden border border-white/10 bg-gradient-to-b ${project.accentColor} transition-all duration-300 hover:border-white/20`}
@@ -507,11 +387,10 @@ export default function PortfolioShowcasePage() {
                                         Visit Live Website <ExternalLink className="w-4 h-4" />
                                     </a>
                                     <a
-                                        href="#quote-calculator"
-                                        onClick={() => setSelectedProjectTier(project.id === 'studiocloudchild' ? 'studio' : project.id === 'cwcindia' ? 'corporate' : 'edtech')}
+                                        href="#contact-us"
                                         className="glass hover:bg-white/10 text-white px-5 py-3 rounded-full text-sm font-semibold border border-white/15 transition-all inline-flex items-center gap-1.5"
                                     >
-                                        Request Similar Build <ArrowRight className="w-4 h-4 text-slate-400" />
+                                        Discuss Similar Build <ArrowRight className="w-4 h-4 text-slate-400" />
                                     </a>
                                 </div>
                             </div>
@@ -633,267 +512,6 @@ export default function PortfolioShowcasePage() {
                         </div>
                     </div>
                 )}
-
-                {/* Custom Quote & Scope Request Section (No Costs / Bespoke Proposal) */}
-                <section id="quote-calculator" className="mb-32">
-                    <div className="glass-card rounded-3xl p-8 sm:p-12 lg:p-16 border border-white/10 relative overflow-hidden">
-                        <div className="max-w-3xl mb-12">
-                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-xs font-semibold text-indigo-400 mb-4">
-                                <Calculator className="w-3.5 h-3.5" />
-                                <span>Bespoke Project Proposal Generator</span>
-                            </div>
-                            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
-                                Request a Tailored Project Quote & Scope Breakdown
-                            </h2>
-                            <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-                                Configure your ideal architecture, required functional modules, and delivery timeline below. Submit your project requirements to receive a customized technical specification and proposal from our senior engineering team.
-                            </p>
-                        </div>
-
-                        {quoteSubmitted ? (
-                            <div className="glass p-8 sm:p-12 rounded-3xl border border-emerald-500/30 bg-emerald-500/5 text-center max-w-2xl mx-auto">
-                                <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-6">
-                                    <CheckCircle2 className="w-8 h-8" />
-                                </div>
-                                <h3 className="text-2xl font-bold text-white mb-3">Quote Request Submitted!</h3>
-                                <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
-                                    {quoteSuccessMsg}
-                                </p>
-                                <button
-                                    onClick={() => setQuoteSubmitted(false)}
-                                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-2.5 rounded-full transition-all"
-                                >
-                                    Build Another Proposal
-                                </button>
-                            </div>
-                        ) : (
-                            <form onSubmit={handleQuoteSubmit} className="space-y-12">
-                                {/* Step 1: Select Architecture Model */}
-                                <div>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span>
-                                        <h3 className="text-lg font-bold text-white">Select Base Architecture Model</h3>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        {Object.entries(architectureOptions).map(([key, item]) => {
-                                            const Icon = item.icon;
-                                            const isSelected = selectedProjectTier === key;
-                                            return (
-                                                <div
-                                                    key={key}
-                                                    onClick={() => setSelectedProjectTier(key)}
-                                                    className={`glass p-5 rounded-2xl cursor-pointer border transition-all ${
-                                                        isSelected
-                                                            ? 'border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10'
-                                                            : 'border-white/10 hover:border-white/20 hover:bg-white/5'
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className={`p-2.5 rounded-xl ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>
-                                                            <Icon className="w-5 h-5" />
-                                                        </div>
-                                                        <span className="text-[11px] font-mono font-medium text-slate-400">
-                                                            {item.tag}
-                                                        </span>
-                                                    </div>
-                                                    <h4 className="text-base font-bold text-white mb-1.5">{item.name}</h4>
-                                                    <p className="text-xs text-slate-400 leading-relaxed mb-4">{item.desc}</p>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {item.stack.map((s, idx) => (
-                                                            <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-slate-400">
-                                                                {s}
-                                                            </span>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Step 2: Select Modules & Capabilities */}
-                                <div>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span>
-                                        <h3 className="text-lg font-bold text-white">Select Functional Modules & Add-Ons</h3>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {modularFeatures.map(mod => {
-                                            const isChecked = selectedModules.includes(mod.id);
-                                            return (
-                                                <div
-                                                    key={mod.id}
-                                                    onClick={() => toggleModule(mod.id)}
-                                                    className={`glass p-4 rounded-2xl cursor-pointer border transition-all flex items-start gap-3 ${
-                                                        isChecked
-                                                            ? 'border-emerald-500/50 bg-emerald-500/10 shadow-sm'
-                                                            : 'border-white/10 hover:border-white/20'
-                                                    }`}
-                                                >
-                                                    <div className={`w-5 h-5 rounded-md flex items-center justify-center mt-0.5 shrink-0 ${
-                                                        isChecked ? 'bg-emerald-500 text-slate-950 font-bold' : 'border border-white/20 bg-white/5'
-                                                    }`}>
-                                                        {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                                                    </div>
-                                                    <div>
-                                                        <h5 className="text-sm font-semibold text-white">{mod.label}</h5>
-                                                        <p className="text-xs text-slate-400 mt-0.5">{mod.desc}</p>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Step 3: Project Scope Scale & Timeline */}
-                                <div className="grid md:grid-cols-2 gap-8">
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span>
-                                            <h3 className="text-base font-bold text-white">Target Scope Scale</h3>
-                                        </div>
-                                        <div className="space-y-3">
-                                            {scopeScales.map(scale => {
-                                                const isSelected = selectedScopeScale === scale.id;
-                                                return (
-                                                    <div
-                                                        key={scale.id}
-                                                        onClick={() => setSelectedScopeScale(scale.id)}
-                                                        className={`glass p-3.5 rounded-xl cursor-pointer border transition-all flex items-center justify-between ${
-                                                            isSelected ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:border-white/20'
-                                                        }`}
-                                                    >
-                                                        <div>
-                                                            <span className="text-sm font-semibold text-white block">{scale.label}</span>
-                                                            <span className="text-xs text-slate-400">{scale.desc}</span>
-                                                        </div>
-                                                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                                                            isSelected ? 'border-indigo-400 bg-indigo-600' : 'border-white/20'
-                                                        }`}>
-                                                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white"></div>}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">4</span>
-                                            <h3 className="text-base font-bold text-white">Target Launch Timeline</h3>
-                                        </div>
-                                        <div className="space-y-3">
-                                            {timelineOptions.map(time => {
-                                                const isSelected = selectedTimeline === time.id;
-                                                return (
-                                                    <div
-                                                        key={time.id}
-                                                        onClick={() => setSelectedTimeline(time.id)}
-                                                        className={`glass p-3.5 rounded-xl cursor-pointer border transition-all flex items-center justify-between ${
-                                                            isSelected ? 'border-sky-500 bg-sky-500/10' : 'border-white/10 hover:border-white/20'
-                                                        }`}
-                                                    >
-                                                        <span className="text-sm font-semibold text-white">{time.label}</span>
-                                                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono">
-                                                            {time.badge}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Step 4: Contact & Submission Details */}
-                                <div className="glass p-6 sm:p-8 rounded-2xl border border-white/10">
-                                    <h4 className="text-base font-bold text-white mb-6 flex items-center gap-2">
-                                        <Send className="w-4 h-4 text-indigo-400" />
-                                        Your Contact Details & Project Notes
-                                    </h4>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                                                Your Full Name *
-                                            </label>
-                                            <input
-                                                type="text"
-                                                required
-                                                placeholder="e.g. Rahul Sharma"
-                                                value={quoteFormData.name}
-                                                onChange={e => setQuoteFormData({ ...quoteFormData, name: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                                                Work Email Address *
-                                            </label>
-                                            <input
-                                                type="email"
-                                                required
-                                                placeholder="rahul@company.com"
-                                                value={quoteFormData.email}
-                                                onChange={e => setQuoteFormData({ ...quoteFormData, email: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                                                Phone / WhatsApp Number
-                                            </label>
-                                            <input
-                                                type="tel"
-                                                placeholder="+91 98765 43210"
-                                                value={quoteFormData.phone}
-                                                onChange={e => setQuoteFormData({ ...quoteFormData, phone: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                                                Company / Project Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. Sharma Media & Co."
-                                                value={quoteFormData.company}
-                                                onChange={e => setQuoteFormData({ ...quoteFormData, company: e.target.value })}
-                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="mb-6">
-                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                                            Project Brief or Specific Requirements
-                                        </label>
-                                        <textarea
-                                            rows={3}
-                                            placeholder="Tell us about your brand vision, key functionality, or reference websites..."
-                                            value={quoteFormData.notes}
-                                            onChange={e => setQuoteFormData({ ...quoteFormData, notes: e.target.value })}
-                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/10">
-                                        <div className="text-xs text-slate-400">
-                                            🔒 Full NDA & Intellectual Property ownership. Zero unsolicited sales spam.
-                                        </div>
-                                        <button
-                                            type="submit"
-                                            disabled={submittingQuote}
-                                            className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold px-8 py-3.5 rounded-full text-sm transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 disabled:opacity-50"
-                                        >
-                                            {submittingQuote ? 'Submitting Scope...' : 'Submit Scope & Request Proposal'}
-                                            <ArrowRight className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        )}
-                    </div>
-                </section>
 
                 {/* Direct Contact Options Section */}
                 <section id="contact-us" className="mb-24">
