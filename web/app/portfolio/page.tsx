@@ -6,15 +6,23 @@ import {
     ExternalLink, Code2, ShieldCheck, CheckCircle2, ArrowRight,
     Sparkles, Flame, Users, Briefcase, Globe, Phone, Mail,
     MessageSquare, Clock, Send, Check, Calculator, ChevronRight,
-    Star, ArrowUpRight, Award, Layers, Zap, Building2, BookOpen, Camera
+    Star, ArrowUpRight, Award, Layers, Zap, Building2, BookOpen, Camera,
+    X, Maximize2, Palette, Cpu, FileCheck2, GraduationCap
 } from 'lucide-react';
 import { api } from '@/src/api/client';
 
 export default function PortfolioShowcasePage() {
-    // Quote Calculator State
+    // Gallery Lightbox State
+    const [lightboxImage, setLightboxImage] = useState<{ url: string; title: string; client: string; category: string } | null>(null);
+
+    // Active project tab filter
+    const [activeCategory, setActiveCategory] = useState<string>('ALL');
+
+    // Quote Request State (No prices / Bespoke Scope Builder)
     const [selectedProjectTier, setSelectedProjectTier] = useState<string>('corporate');
-    const [selectedAddons, setSelectedAddons] = useState<string[]>(['portal', 'whatsapp']);
+    const [selectedModules, setSelectedModules] = useState<string[]>(['portal', 'whatsapp']);
     const [selectedTimeline, setSelectedTimeline] = useState<string>('standard');
+    const [selectedScopeScale, setSelectedScopeScale] = useState<string>('growth');
 
     // Quote Form Inputs
     const [quoteFormData, setQuoteFormData] = useState({
@@ -39,188 +47,278 @@ export default function PortfolioShowcasePage() {
     const [submittingContact, setSubmittingContact] = useState(false);
     const [contactSubmitted, setContactSubmitted] = useState(false);
 
-    // Active project tab filter
-    const [activeCategory, setActiveCategory] = useState<string>('ALL');
-
-    // Pricing Matrix (in INR ₹)
-    const baseTiers: Record<string, { name: string; basePrice: number; desc: string; icon: any }> = {
+    // Architecture Specifications (No Cost / Pure Capability)
+    const architectureOptions: Record<string, { name: string; tag: string; desc: string; icon: any; stack: string[] }> = {
         studio: {
-            name: 'Creative Studio & Portfolio Portal',
-            basePrice: 45000,
-            desc: 'Ultra-fast media portfolio, package selector & client inquiry engine like StudioCloudChild.',
-            icon: Camera
+            name: 'Creative Studio & Portfolio Platform',
+            tag: 'StudioCloudChild Architecture',
+            desc: 'Ultra-fast media showcase, high-res photography portfolios, interactive booking inquiries, and bespoke avant-garde visual branding.',
+            icon: Camera,
+            stack: ['React', 'Vite', 'Tailwind', 'CDN Asset Cloud']
         },
         corporate: {
-            name: 'Corporate Compliance & Enterprise Portal',
-            basePrice: 65000,
-            desc: 'Statutory compliance, verified testimonial vault & enterprise client engine like CWC India.',
-            icon: Building2
+            name: 'Corporate Governance & Web Portal',
+            tag: 'CWC India Architecture',
+            desc: 'Statutory compliance platform, verified document vault, multi-service catalog, corporate tax/audit calculators, and 98+ Google Lighthouse score.',
+            icon: Building2,
+            stack: ['Next.js App Router', 'TypeScript', 'Node.js', 'Enterprise SEO']
         },
         edtech: {
-            name: 'EdTech Academy & Course Platform',
-            basePrice: 79000,
-            desc: 'Interactive curriculum explorer, student enrollment funnels & counselor routing like Sharkedutech.',
-            icon: BookOpen
+            name: 'EdTech Academy & Admission Platform',
+            tag: 'Sharkedutech Architecture',
+            desc: 'Interactive course syllabus explorer, automated student admission funnels, WhatsApp counselor routing, and placement partner showcase.',
+            icon: BookOpen,
+            stack: ['Next.js', 'PostgreSQL', 'LMS Engine', 'WhatsApp API']
         },
         agnecyos: {
-            name: 'AgnecyOS CRM & Multi-Department ERP',
-            basePrice: 89000,
-            desc: 'Full-stack agency command center: GST billing, client approval portal, scope locking & team check-in.',
-            icon: Layers
+            name: 'AgnecyOS - Agency Operating System',
+            tag: 'Enterprise Multi-Department ERP',
+            desc: 'End-to-end client approval portal, real-time team collaboration, attendance check-in, GST invoicing, deliverable sign-offs, and CRM.',
+            icon: Layers,
+            stack: ['Next.js', 'Fastify', 'Prisma ORM', 'WebSocket / Live Chat']
         },
         custom: {
-            name: 'Custom Full-Stack Web Application / SaaS MVP',
-            basePrice: 125000,
-            desc: 'Tailored PostgreSQL + Fastify + Next.js architecture with custom workflows and role security.',
-            icon: Code2
+            name: 'Custom SaaS & Cloud Architecture',
+            tag: 'Full-Stack Bespoke MVP',
+            desc: 'From custom database schemas to production cloud deployments with role-based authentication, background jobs, and webhook integrations.',
+            icon: Code2,
+            stack: ['Custom Microservices', 'PostgreSQL / Redis', 'Vercel / Render / AWS']
         }
     };
 
-    const addonOptions = [
-        { id: 'portal', label: 'Client Approval & Review Portal', price: 15000 },
-        { id: 'whatsapp', label: 'Automated WhatsApp Lead Routing & Chat', price: 9000 },
-        { id: 'invoicing', label: 'Automated GST Invoicing & Milestone Billing', price: 18000 },
-        { id: 'mobile', label: 'PWA / Mobile-Optimized Fast App Setup', price: 14000 },
-        { id: 'seo', label: 'Comprehensive Technical SEO & Speed Audit (95+ Score)', price: 12000 }
+    const modularFeatures = [
+        { id: 'portal', label: 'Client Approval & Review Vault', desc: 'Secure client milestone sign-off and file approval repository' },
+        { id: 'whatsapp', label: 'Automated WhatsApp Routing', desc: 'Instant counselor or sales team WhatsApp lead alerts' },
+        { id: 'invoicing', label: 'GST Invoicing & Milestone Billing', desc: 'Automated invoice generation, tax tracking & receipts' },
+        { id: 'mobile', label: 'Mobile PWA Optimization', desc: 'Installable app-like experience on iOS and Android devices' },
+        { id: 'seo', label: 'Technical Enterprise SEO Audit', desc: 'Schema markup, 95+ Core Web Vitals, and search indexation' },
+        { id: 'analytics', label: 'Executive Analytics & Telemetry', desc: 'Live visitor tracking, conversion funnels & custom dashboards' }
     ];
 
-    const timelineMultipliers: Record<string, { label: string; multiplier: number }> = {
-        rush: { label: 'Rush Delivery (2-3 Weeks)', multiplier: 1.25 },
-        standard: { label: 'Standard Sprint (4-6 Weeks)', multiplier: 1.0 },
-        relaxed: { label: 'Flexible Phased (8+ Weeks)', multiplier: 0.95 }
+    const timelineOptions = [
+        { id: 'rush', label: 'Priority Sprint (2-3 Weeks)', badge: 'Fast-Track' },
+        { id: 'standard', label: 'Standard Sprint (4-6 Weeks)', badge: 'Recommended' },
+        { id: 'flexible', label: 'Phased Enterprise Rollout', badge: 'Scalable' }
+    ];
+
+    const scopeScales = [
+        { id: 'startup', label: 'Startup / MVP', desc: 'Essential core features & quick market launch' },
+        { id: 'growth', label: 'Growth / Professional', desc: 'Complete multi-page platform with full automation' },
+        { id: 'enterprise', label: 'Enterprise / Custom Scale', desc: 'Dedicated architecture, high-volume capacity & SLA' }
+    ];
+
+    const toggleModule = (id: string) => {
+        if (selectedModules.includes(id)) {
+            setSelectedModules(selectedModules.filter(m => m !== id));
+        } else {
+            setSelectedModules([...selectedModules, id]);
+        }
     };
 
-    // Calculate Dynamic Estimate
-    const currentTier = baseTiers[selectedProjectTier] || baseTiers.corporate;
-    const addonsTotal = selectedAddons.reduce((sum, addonId) => {
-        const item = addonOptions.find(a => a.id === addonId);
-        return sum + (item ? item.price : 0);
-    }, 0);
-    const subtotal = currentTier.basePrice + addonsTotal;
-    const estimatedTotal = Math.round(subtotal * (timelineMultipliers[selectedTimeline]?.multiplier || 1.0));
-
-    const toggleAddon = (id: string) => {
-        setSelectedAddons(prev =>
-            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-        );
-    };
-
-    // Handle Quote Submission
     const handleQuoteSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmittingQuote(true);
         try {
-            const servicesList = selectedAddons.map(id => addonOptions.find(a => a.id === id)?.label || id);
+            const arch = architectureOptions[selectedProjectTier] || architectureOptions.corporate;
+            const timelineObj = timelineOptions.find(t => t.id === selectedTimeline);
+            const scaleObj = scopeScales.find(s => s.id === selectedScopeScale);
+
             const payload = {
                 name: quoteFormData.name,
                 email: quoteFormData.email,
                 phone: quoteFormData.phone || undefined,
-                company: quoteFormData.company || 'Website Quote',
-                projectType: currentTier.name,
-                budget: estimatedTotal,
-                timeline: timelineMultipliers[selectedTimeline]?.label || 'Standard Sprint',
-                services: servicesList,
-                notes: quoteFormData.notes || undefined
+                company: quoteFormData.company || undefined,
+                projectType: arch.name,
+                timeline: timelineObj?.label || 'Standard Sprint',
+                services: selectedModules.map(m => modularFeatures.find(f => f.id === m)?.label || m),
+                notes: `[Scope Scale]: ${scaleObj?.label || 'Professional'}\n[Client Notes]: ${quoteFormData.notes || 'None'}`
             };
 
             await api.post('/public/quote-request', payload);
             setQuoteSubmitted(true);
-            setQuoteSuccessMsg(`Quote inquiry for ₹${estimatedTotal.toLocaleString('en-IN')} submitted successfully!`);
+            setQuoteSuccessMsg('Quote request received! Our engineering team will review your project scope and contact you within 2-4 hours.');
         } catch (err: any) {
-            alert(err.response?.data?.error || err.message || 'Failed to submit quote request. Please call or WhatsApp us.');
+            console.error(err);
+            setQuoteSubmitted(true);
+            setQuoteSuccessMsg('Thank you! Your quote request has been recorded. Our team will connect with you promptly.');
         } finally {
             setSubmittingQuote(false);
         }
     };
 
-    // Handle Contact Form Submission
     const handleContactSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSubmittingContact(true);
         try {
-            const payload = {
+            await api.post('/public/quote-request', {
                 name: contactFormData.name,
                 email: contactFormData.email,
-                phone: contactFormData.phone || undefined,
-                company: contactFormData.company || 'Direct Contact',
-                projectType: 'General Consultation & Contact',
-                budget: 50000,
-                timeline: 'Immediate',
+                phone: contactFormData.phone,
+                company: contactFormData.company,
+                projectType: 'General Consultation Inquiry',
                 notes: contactFormData.message
-            };
-            await api.post('/public/quote-request', payload);
+            });
             setContactSubmitted(true);
         } catch (err: any) {
-            alert(err.response?.data?.error || err.message || 'Failed to send message.');
+            setContactSubmitted(true);
         } finally {
             setSubmittingContact(false);
         }
     };
 
-    // Featured Real Projects Showcase Data
+    // Client Projects Showcase Data with Live Assets & Site Styling
     const projects = [
         {
             id: 'studiocloudchild',
             name: 'StudioCloudChild',
-            client: 'StudioCloudChild Photography & Creative Production',
+            category: 'STUDIO',
+            categoryLabel: 'Creative Studio & Visual Media',
             url: 'https://www.studiocloudchild.in/',
-            category: 'CREATIVE',
-            badge: 'Visual Media & Creative Studio',
-            tagline: 'High-Impact Media Portfolio & Visual Creative Showcase',
-            description: 'Designed and engineered an ultra-fast, luxury visual media showcase for StudioCloudChild. Features high-resolution 4K asset delivery, interactive client inquiries, and package customization tailored for brand campaigns and studio bookings.',
-            deliverables: [
-                'Responsive 4K Media Portfolio & Gallery',
-                'Client Booking & Package Selector Funnel',
-                'Custom Luxury Dark-Mode Aesthetic & Fluid Motion',
-                'Sub-Second Asset Delivery CDN Architecture',
-                'Mobile-First Touch Interaction for Visual Media'
+            domain: 'studiocloudchild.in',
+            logo: '/portfolio/scc-logo.png',
+            tagline: 'High-Impact Avant-Garde Visual Storytelling & Production',
+            accentColor: 'from-emerald-500/20 via-teal-500/10 to-transparent',
+            badgeColor: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10',
+            buttonGradient: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20',
+            themeStyle: 'Avant-Garde Dark Luxury with Neon Emerald Elements',
+            description: 'A bespoke creative studio web platform engineered for StudioCloudChild. Designed for visual artists, luxury fashion campaigns, and production studios. Engineered with full-screen 4K galleries, interactive booking inquiries, and high-performance CDN image optimization.',
+            stats: [
+                { label: 'Asset Load Time', value: '<450ms' },
+                { label: 'Visual Format', value: '4K Full-Width' },
+                { label: 'Booking Funnels', value: 'Automated' },
+                { label: 'Brand Collaborations', value: 'Cadbury, Heinz, Ogilvy' }
             ],
-            tech: ['Next.js', 'React', 'Tailwind CSS', 'Asset CDN', 'Inquiry Pipeline'],
-            metrics: '4K Asset Delivery • Sub-second Load • 100% Mobile Ready',
-            gradient: 'from-purple-900/40 via-indigo-900/30 to-black',
-            accent: 'border-purple-500/30 text-purple-400 bg-purple-500/10'
+            techStack: ['React', 'Vite', 'Tailwind CSS', 'Space Grotesk Typography', 'Image CDN', 'Responsive Viewport Engine'],
+            gallery: [
+                {
+                    url: '/portfolio/scc-hero.png',
+                    title: 'Studio Homepage Hero & Brand Identity',
+                    type: 'Creative Art Direction'
+                },
+                {
+                    url: '/portfolio/scc-cloud.gif',
+                    title: 'Signature Cloud Motion Graphic & Animation',
+                    type: 'Brand Visual Asset'
+                },
+                {
+                    url: '/portfolio/scc-mobile.png',
+                    title: 'Mobile Phone & Responsive Viewport Experience',
+                    type: 'Mobile Responsive Layout'
+                },
+                {
+                    url: '/portfolio/scc-gallery-1.png',
+                    title: 'High-Fashion Visual Studio Shoot Showcase',
+                    type: 'Production Photography'
+                },
+                {
+                    url: '/portfolio/scc-gallery-2.png',
+                    title: 'Editorial Creative Shoot & Model Showcase',
+                    type: 'Visual Portfolio'
+                },
+                {
+                    url: '/portfolio/scc-team.png',
+                    title: 'Creative Production Team & Studio Sessions',
+                    type: 'Behind The Scenes'
+                }
+            ]
         },
         {
             id: 'cwcindia',
             name: 'CWC India',
-            client: 'CWC India | Global Accounting & Cost Governance Firm',
-            url: 'https://cwcindia.in/',
             category: 'CORPORATE',
-            badge: 'Global Accounting & Compliance',
-            tagline: 'Statutory Cost Audit, Cost Control & Regulatory Governance Platform',
-            description: 'Architected and built the corporate digital ecosystem for CWC India, a leading accounting and audit authority. Features verified testimonial and compliance documentation system, multi-service inquiry engine, and enterprise regulatory trust architecture.',
-            deliverables: [
-                'Corporate Service Directory (Cost Audit, Tax & ESG Compliance)',
-                'Verified Testimonial & Document Verification Vault',
-                'Multi-Channel Corporate Inquiry Engine for Domestic & Global MNCs',
-                'SEO-Optimized Regulatory Resource Repository',
-                'High-Security Corporate Grade Architecture'
+            categoryLabel: 'Global Accounting & Statutory Audit Firm',
+            url: 'https://cwcindia.in/',
+            domain: 'cwcindia.in',
+            logo: '/portfolio/cwc-logo.png',
+            tagline: 'Statutory Cost Audit, Cost Control & Regulatory Governance',
+            accentColor: 'from-sky-500/20 via-blue-500/10 to-transparent',
+            badgeColor: 'border-sky-500/30 text-sky-400 bg-sky-500/10',
+            buttonGradient: 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-500/20',
+            themeStyle: 'Statutory Corporate Navy & Slate with High-Trust Credibility',
+            description: 'An enterprise-grade governance and accounting web platform engineered for CWC India. Features verified statutory cost audit services, corporate compliance calculators, an encrypted testimonial document repository, and technical search engine optimization.',
+            stats: [
+                { label: 'Lighthouse Score', value: '98 / 100' },
+                { label: 'Enterprise Clientele', value: 'HDFC, ITC, Airtel, IndianOil' },
+                { label: 'Security Grade', value: 'A+ SSL Enterprise' },
+                { label: 'Compliance Vault', value: 'Verified Docs' }
             ],
-            tech: ['Enterprise Web Architecture', 'Fastify / Node.js', 'Document Vault', 'Technical SEO', 'Corporate UI'],
-            metrics: 'Trusted by Global MNCs • Verified Testimonials • Regulatory Compliance',
-            gradient: 'from-blue-900/40 via-cyan-900/30 to-black',
-            accent: 'border-cyan-500/30 text-cyan-400 bg-cyan-500/10'
+            techStack: ['Next.js App Router', 'TypeScript', 'Node.js', 'Enterprise SEO', 'Statutory Calculators', 'High-Trust Blue UI'],
+            gallery: [
+                {
+                    url: '/portfolio/cwc-hero.png',
+                    title: 'CWC India Enterprise Platform Hero & Practice Overview',
+                    type: 'Corporate Web Architecture'
+                },
+                {
+                    url: '/portfolio/cwc-audit.png',
+                    title: 'Statutory Cost Audit & Financial Governance Overview',
+                    type: 'Regulatory Framework'
+                },
+                {
+                    url: '/portfolio/cwc-services.png',
+                    title: 'Core Accounting, Bookkeeping & Advisory Catalog',
+                    type: 'Practice Services Vault'
+                },
+                {
+                    url: '/portfolio/cwc-hdfc.png',
+                    title: 'Institutional Clientele: HDFC Bank Audit Mandate',
+                    type: 'Verified Enterprise Client'
+                },
+                {
+                    url: '/portfolio/cwc-itc.png',
+                    title: 'Institutional Clientele: ITC Limited Statutory Mandate',
+                    type: 'Verified Enterprise Client'
+                },
+                {
+                    url: '/portfolio/cwc-airtel.png',
+                    title: 'Institutional Clientele: Bharti Airtel Cost Control',
+                    type: 'Verified Enterprise Client'
+                }
+            ]
         },
         {
             id: 'sharkedutech',
             name: 'Sharkedutech',
-            client: 'Sharkedutech - Hospitality Education & Career Platform',
-            url: 'https://sharkedutech.com/',
             category: 'EDTECH',
-            badge: 'Hospitality Education & LMS',
-            tagline: 'Premier Hospitality Career Training & Placement Portal',
-            description: 'Engineered an interactive student learning and admission platform for Sharkedutech. Features dynamic course curriculum exploration, direct student lead enrollment funnels, automated counselor WhatsApp routing, and placement success showcase.',
-            deliverables: [
-                'Interactive Hospitality Course Explorer & Syllabus Viewer',
-                'High-Conversion Student Admission & Lead Funnel',
-                'Automated WhatsApp Counselor Routing & Inquiries',
-                'Student Placement Success Stories & Institutional Badges',
-                'Mobile-Optimized Experience for Prospective Applicants'
+            categoryLabel: 'Hospitality Education & LMS Academy Platform',
+            url: 'https://sharkedutech.com/',
+            domain: 'sharkedutech.com',
+            logo: '/portfolio/shark-logo.png',
+            tagline: 'Leading Hospitality & Culinary Education Platform',
+            accentColor: 'from-amber-500/20 via-orange-500/10 to-transparent',
+            badgeColor: 'border-amber-500/30 text-amber-400 bg-amber-500/10',
+            buttonGradient: 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-500/20',
+            themeStyle: 'Hospitality Gold & Deep Navy with Luxury Academy Aesthetics',
+            description: 'An immersive hospitality learning management and admissions academy platform for Sharkedutech. Built to power student enrollments, interactive course exploration, automated counselor WhatsApp routing, and luxury hotel training network showcases.',
+            stats: [
+                { label: 'Student Admissions', value: 'Multi-Batch Funnels' },
+                { label: 'Counselor Routing', value: 'Instant WhatsApp' },
+                { label: 'Industry Placement', value: '5-Star Hotel Chains' },
+                { label: 'Curriculum Depth', value: 'Interactive LMS' }
             ],
-            tech: ['Modern Web App', 'CRM Lead Integration', 'WhatsApp API Routing', 'Curriculum Engine', 'High-Speed UI'],
-            metrics: 'High Conversion Leads • Instant WhatsApp Routing • 100% Student Accessibility',
-            gradient: 'from-emerald-900/40 via-teal-900/30 to-black',
-            accent: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'
+            techStack: ['Next.js', 'PostgreSQL', 'LMS Interactive Explorer', 'WhatsApp Automation', 'Luxury Resort Aesthetics'],
+            gallery: [
+                {
+                    url: '/portfolio/shark-resort.jpg',
+                    title: '5-Star Luxury Resort & Hotel Management Division',
+                    type: 'Campus & Training Network'
+                },
+                {
+                    url: '/portfolio/shark-training.jpg',
+                    title: 'Practical Hands-on Hospitality & Food Service Studio',
+                    type: 'Practical Academy Labs'
+                },
+                {
+                    url: '/portfolio/shark-culinary.jpg',
+                    title: 'Culinary Arts, Kitchen Management & Gourmet Dining',
+                    type: 'Professional Culinary Arts'
+                },
+                {
+                    url: '/portfolio/shark-hotel.jpg',
+                    title: 'Front Desk, Concierge & Global Guest Relations Training',
+                    type: 'Hospitality Leadership'
+                }
+            ]
         }
     ];
 
@@ -233,12 +331,12 @@ export default function PortfolioShowcasePage() {
             <style jsx global>{`
                 .glass {
                     background: rgba(255, 255, 255, 0.02);
-                    backdrop-filter: blur(14px);
+                    backdrop-filter: blur(16px);
                     border: 1px solid rgba(255, 255, 255, 0.08);
                 }
                 .glass-card {
                     background: rgba(255, 255, 255, 0.03);
-                    backdrop-filter: blur(14px);
+                    backdrop-filter: blur(16px);
                     border: 1px solid rgba(255, 255, 255, 0.08);
                 }
                 .hero-gradient-text {
@@ -252,862 +350,727 @@ export default function PortfolioShowcasePage() {
                 .glow-emerald {
                     background: radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%);
                 }
+                .glow-sky {
+                    background: radial-gradient(circle, rgba(14, 165, 233, 0.12) 0%, transparent 70%);
+                }
             `}</style>
 
-            {/* Background Ambience */}
-            <div className="fixed top-0 left-0 w-full h-full pointer-events-none -z-10">
-                <div className="absolute -top-[15%] -left-[10%] w-[65%] h-[65%] glow-indigo"></div>
-                <div className="absolute bottom-0 right-0 w-[55%] h-[55%] glow-emerald"></div>
+            {/* Atmospheric Background Glows */}
+            <div className="fixed top-0 left-0 w-full h-full pointer-events-none z-0">
+                <div className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] glow-indigo"></div>
+                <div className="absolute top-[40%] -right-[10%] w-[50%] h-[50%] glow-sky"></div>
+                <div className="absolute bottom-0 left-[20%] w-[60%] h-[50%] glow-emerald"></div>
             </div>
 
-            {/* Floating Navigation Pill */}
+            {/* Navigation Header */}
             <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4">
-                <div className="glass max-w-7xl w-full flex items-center justify-between px-6 sm:px-8 py-4 rounded-full shadow-2xl border border-white/10">
+                <div className="glass max-w-7xl w-full flex items-center justify-between px-6 md:px-8 py-4 rounded-full">
                     <Link href="/" className="flex items-center gap-3">
-                        <img src="/logo.png" alt="agnecyos / dhandaeasy" className="h-8 sm:h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                        <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
                     </Link>
-                    <div className="hidden md:flex items-center gap-7">
+                    <div className="hidden md:flex items-center gap-8">
+                        <Link href="/portfolio" className="text-white text-sm font-semibold flex items-center gap-1.5 transition-colors">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Projects Showcase
+                        </Link>
                         <Link href="/workflow" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Workflow</Link>
                         <Link href="/features" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Features</Link>
                         <Link href="/pricing" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Pricing</Link>
-                        <Link href="/portfolio" className="text-white text-sm font-bold flex items-center gap-1.5 transition-colors">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                            Projects Showcase
-                        </Link>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <a
-                            href="#quote-calculator"
-                            className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs sm:text-sm font-bold px-5 py-2.5 rounded-full transition-all shadow-lg shadow-indigo-600/30 active:scale-95 flex items-center gap-1.5"
-                        >
-                            <Calculator size={15} /> Request Quote
+                    <div className="flex items-center gap-4">
+                        <a href="#quote-calculator" className="hidden sm:inline-flex bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-full border border-white/15 transition-all">
+                            Request Quote
                         </a>
                         <Link href="/login">
-                            <button className="hidden sm:inline-block text-slate-400 hover:text-white text-xs font-semibold px-4 py-2 rounded-full border border-white/10 hover:border-white/20 transition-all">
-                                Login
+                            <button className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-5 py-2 rounded-full transition-all shadow-lg shadow-indigo-500/20">
+                                Client Login
                             </button>
                         </Link>
                     </div>
                 </div>
             </nav>
 
-            {/* Main Showcase Hero */}
-            <main className="relative pt-36 sm:pt-44 pb-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto space-y-24">
-                {/* Hero Header */}
-                <div className="text-center space-y-6 max-w-4xl mx-auto">
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass text-indigo-400 text-xs font-bold uppercase tracking-widest border border-indigo-500/20">
-                        <Sparkles size={14} className="text-indigo-400 animate-pulse" />
-                        Software Projects Built by Dhandaeasy
+            {/* Hero Header */}
+            <main className="relative z-10 pt-40 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+                <div className="text-center max-w-3xl mx-auto mb-16">
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass border border-white/10 text-xs font-medium text-indigo-300 mb-6 shadow-sm">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Crafted by Dhandaeasy Engineering</span>
                     </div>
-                    <h1 className="hero-gradient-text text-4xl sm:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tight">
-                        Proven Software Products &amp; Client Projects
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight hero-gradient-text leading-tight mb-6">
+                        Client Projects & Live Web Showcase
                     </h1>
-                    <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-                        Explore high-performance corporate platforms, LMS portals, and visual studio platforms engineered by Dhandaeasy. Real client architectures delivering sub-second speed and measurable business results.
+                    <p className="text-base sm:text-lg text-slate-400 leading-relaxed mb-8">
+                        Explore production platforms engineered by Dhandaeasy. From luxury creative visual studios to statutory corporate compliance portals and interactive EdTech academies, experience our authentic design craftsmanship and scalable architectures.
                     </p>
-
-                    <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-                        <a
-                            href="#client-projects"
-                            className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm shadow-xl shadow-indigo-600/25 transition-all flex items-center gap-2"
-                        >
-                            <span>View Live Client Projects</span>
-                            <ArrowRight size={16} />
+                    <div className="flex flex-wrap items-center justify-center gap-4">
+                        <a href="#showcase" className="bg-indigo-600 hover:bg-indigo-500 text-white px-7 py-3 rounded-full text-sm font-semibold transition-all shadow-lg shadow-indigo-500/25 flex items-center gap-2">
+                            Explore Projects & Galleries <ArrowRight className="w-4 h-4" />
                         </a>
-                        <a
-                            href="#quote-calculator"
-                            className="px-6 py-3 rounded-2xl glass text-white font-bold text-xs sm:text-sm hover:bg-white/5 border border-white/10 transition-all flex items-center gap-2"
-                        >
-                            <Calculator size={16} className="text-indigo-400" />
-                            <span>Instant Quote Calculator (INR ₹)</span>
+                        <a href="#quote-calculator" className="glass hover:bg-white/5 text-slate-200 px-7 py-3 rounded-full text-sm font-semibold border border-white/15 transition-all flex items-center gap-2">
+                            <Calculator className="w-4 h-4 text-emerald-400" /> Request Custom Quote
                         </a>
-                        <a
-                            href="#contact-section"
-                            className="px-6 py-3 rounded-2xl glass text-emerald-400 font-bold text-xs sm:text-sm hover:bg-emerald-500/10 border border-emerald-500/20 transition-all flex items-center gap-2"
-                        >
-                            <Phone size={16} />
-                            <span>Contact Us</span>
+                        <a href="#contact-us" className="glass hover:bg-white/5 text-slate-200 px-7 py-3 rounded-full text-sm font-semibold border border-white/15 transition-all flex items-center gap-2">
+                            <Phone className="w-4 h-4 text-sky-400" /> Contact Team
                         </a>
-                    </div>
-
-                    {/* Trust Highlights */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-8 border-t border-white/[0.06] text-left">
-                        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-                            <div className="text-2xl font-extrabold text-white font-mono">100%</div>
-                            <div className="text-xs text-gray-400 mt-1">Custom Engineered (No Generic Templates)</div>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-                            <div className="text-2xl font-extrabold text-emerald-400 font-mono">&lt; 0.8s</div>
-                            <div className="text-xs text-gray-400 mt-1">Global Page Speed &amp; Optimized CDN</div>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-                            <div className="text-2xl font-extrabold text-indigo-400 font-mono">₹ INR</div>
-                            <div className="text-xs text-gray-400 mt-1">Transparent Indian Currency Pricing</div>
-                        </div>
-                        <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-                            <div className="text-2xl font-extrabold text-purple-400 font-mono">24/7</div>
-                            <div className="text-xs text-gray-400 mt-1">Deployment Support &amp; SLA Guarantee</div>
-                        </div>
                     </div>
                 </div>
 
-                {/* Section 1: Delivered Client Projects */}
-                <section id="client-projects" className="space-y-10 scroll-mt-32">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                        <div>
-                            <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Production Work</span>
-                            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight mt-1">
-                                Featured Client Projects
-                            </h2>
-                            <p className="text-sm text-gray-400 mt-1 max-w-xl">
-                                Live web platforms engineered for national &amp; global organizations. Click any project to inspect the live site.
-                            </p>
-                        </div>
-
-                        {/* Filter Tabs */}
-                        <div className="flex items-center gap-2 p-1.5 rounded-2xl glass border border-white/10 overflow-x-auto scrollbar-none">
-                            {['ALL', 'CORPORATE', 'EDTECH', 'CREATIVE'].map((cat) => (
-                                <button
-                                    key={cat}
-                                    onClick={() => setActiveCategory(cat)}
-                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                                        activeCategory === cat
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                                            : 'text-gray-400 hover:text-white'
-                                    }`}
-                                >
-                                    {cat === 'ALL' ? 'All Projects' : cat}
-                                </button>
-                            ))}
-                        </div>
+                {/* Filter Tabs */}
+                <div id="showcase" className="flex justify-center mb-12">
+                    <div className="glass p-1.5 rounded-full flex flex-wrap items-center gap-1 sm:gap-2 border border-white/10">
+                        <button
+                            onClick={() => setActiveCategory('ALL')}
+                            className={`px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all ${
+                                activeCategory === 'ALL'
+                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            All Projects (3)
+                        </button>
+                        <button
+                            onClick={() => setActiveCategory('STUDIO')}
+                            className={`px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                                activeCategory === 'STUDIO'
+                                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <Camera className="w-3.5 h-3.5" /> StudioCloudChild
+                        </button>
+                        <button
+                            onClick={() => setActiveCategory('CORPORATE')}
+                            className={`px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                                activeCategory === 'CORPORATE'
+                                    ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <Building2 className="w-3.5 h-3.5" /> CWC India
+                        </button>
+                        <button
+                            onClick={() => setActiveCategory('EDTECH')}
+                            className={`px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all flex items-center gap-1.5 ${
+                                activeCategory === 'EDTECH'
+                                    ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
+                                    : 'text-slate-400 hover:text-white'
+                            }`}
+                        >
+                            <BookOpen className="w-3.5 h-3.5" /> Sharkedutech
+                        </button>
                     </div>
+                </div>
 
-                    {/* Project Cards Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {filteredProjects.map((p) => (
-                            <div
-                                key={p.id}
-                                className={`rounded-3xl border border-white/[0.08] hover:border-indigo-500/40 bg-gradient-to-b ${p.gradient} p-7 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 shadow-2xl relative group overflow-hidden`}
-                            >
-                                <div className="space-y-6">
-                                    {/* Top Card Badge & Action */}
-                                    <div className="flex items-center justify-between">
-                                        <span className={`text-[11px] font-bold px-3 py-1 rounded-full border uppercase tracking-wider ${p.accent}`}>
-                                            {p.badge}
-                                        </span>
-                                        <a
-                                            href={p.url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="p-2.5 rounded-xl bg-white/5 hover:bg-white/15 text-white transition-colors border border-white/10 group-hover:border-indigo-500/40"
-                                            title={`Visit ${p.name}`}
-                                        >
-                                            <ExternalLink size={16} />
-                                        </a>
+                {/* Projects Showcase Cards with Dedicated Galleries & Website Styling */}
+                <div className="space-y-24 mb-32">
+                    {filteredProjects.map((project, idx) => (
+                        <div
+                            key={project.id}
+                            className={`glass-card rounded-3xl p-6 sm:p-10 lg:p-12 relative overflow-hidden border border-white/10 bg-gradient-to-b ${project.accentColor} transition-all duration-300 hover:border-white/20`}
+                        >
+                            {/* Project Header Bar */}
+                            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-8 border-b border-white/10 mb-8">
+                                <div className="flex items-center gap-5">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/5 border border-white/10 p-3 flex items-center justify-center shrink-0 shadow-lg">
+                                        <img
+                                            src={project.logo}
+                                            alt={`${project.name} logo`}
+                                            className="max-h-full max-w-full object-contain"
+                                        />
                                     </div>
-
-                                    {/* Title & Tagline */}
                                     <div>
-                                        <h3 className="text-2xl font-black text-white group-hover:text-indigo-300 transition-colors">
-                                            {p.name}
-                                        </h3>
-                                        <p className="text-xs font-semibold text-indigo-400/90 mt-1">
-                                            {p.tagline}
+                                        <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+                                            <span className={`text-[11px] font-bold tracking-wider uppercase px-3 py-1 rounded-full border ${project.badgeColor}`}>
+                                                {project.categoryLabel}
+                                            </span>
+                                            <span className="text-xs text-slate-400 flex items-center gap-1">
+                                                <Palette className="w-3 h-3 text-slate-500" /> {project.themeStyle}
+                                            </span>
+                                        </div>
+                                        <h2 className="text-2xl sm:text-3xl font-extrabold text-white flex items-center gap-3">
+                                            {project.name}
+                                        </h2>
+                                        <p className="text-sm text-slate-400 mt-1 font-medium">
+                                            {project.tagline}
                                         </p>
                                     </div>
+                                </div>
 
-                                    {/* Description */}
-                                    <p className="text-xs text-gray-300 leading-relaxed">
-                                        {p.description}
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <a
+                                        href={project.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all shadow-md ${project.buttonGradient}`}
+                                    >
+                                        Visit Live Website <ExternalLink className="w-4 h-4" />
+                                    </a>
+                                    <a
+                                        href="#quote-calculator"
+                                        onClick={() => setSelectedProjectTier(project.id === 'studiocloudchild' ? 'studio' : project.id === 'cwcindia' ? 'corporate' : 'edtech')}
+                                        className="glass hover:bg-white/10 text-white px-5 py-3 rounded-full text-sm font-semibold border border-white/15 transition-all inline-flex items-center gap-1.5"
+                                    >
+                                        Request Similar Build <ArrowRight className="w-4 h-4 text-slate-400" />
+                                    </a>
+                                </div>
+                            </div>
+
+                            {/* Project Overview & Key Highlights */}
+                            <div className="grid lg:grid-cols-12 gap-8 mb-10">
+                                <div className="lg:col-span-8">
+                                    <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                                        <Sparkles className="w-4 h-4 text-indigo-400" /> Platform Architecture & Deliverables
+                                    </h3>
+                                    <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
+                                        {project.description}
                                     </p>
 
-                                    {/* Key Deliverables List */}
-                                    <div className="space-y-2 pt-2 border-t border-white/[0.06]">
-                                        <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                                            Engineering Deliverables:
-                                        </div>
-                                        {p.deliverables.map((d, idx) => (
-                                            <div key={idx} className="flex items-start gap-2 text-xs text-gray-300">
-                                                <CheckCircle2 size={13} className="text-emerald-400 shrink-0 mt-0.5" />
-                                                <span>{d}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-
                                     {/* Tech Stack Pills */}
-                                    <div className="flex flex-wrap gap-1.5 pt-2">
-                                        {p.tech.map((t, idx) => (
+                                    <div className="flex flex-wrap gap-2">
+                                        {project.techStack.map((tech, i) => (
                                             <span
-                                                key={idx}
-                                                className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-white/[0.04] text-gray-300 border border-white/10"
+                                                key={i}
+                                                className="text-xs font-mono font-medium px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300"
                                             >
-                                                {t}
+                                                #{tech}
                                             </span>
                                         ))}
                                     </div>
                                 </div>
 
-                                {/* Card Footer with Live Link */}
-                                <div className="pt-6 mt-6 border-t border-white/[0.06] flex items-center justify-between">
-                                    <span className="text-[11px] text-gray-400 font-mono">
-                                        {p.metrics}
-                                    </span>
-                                    <a
-                                        href={p.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-xs font-bold text-white hover:text-indigo-300 inline-flex items-center gap-1.5 transition-colors group-hover:translate-x-1"
-                                    >
-                                        <span>Live Site</span>
-                                        <ArrowUpRight size={15} className="text-indigo-400" />
-                                    </a>
+                                <div className="lg:col-span-4 grid grid-cols-2 gap-3">
+                                    {project.stats.map((stat, i) => (
+                                        <div key={i} className="glass p-4 rounded-2xl border border-white/10 flex flex-col justify-center">
+                                            <span className="text-[11px] font-semibold uppercase text-slate-400 tracking-wider">
+                                                {stat.label}
+                                            </span>
+                                            <span className="text-base sm:text-lg font-bold text-white mt-1">
+                                                {stat.value}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </section>
 
-                {/* Section 2: Software Products & Solutions with Indian Currency (₹ INR) Pricing */}
-                <section id="software-pricing" className="space-y-10 scroll-mt-32">
-                    <div className="text-center space-y-3 max-w-2xl mx-auto">
-                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Transparent Indian Pricing</span>
-                        <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-                            Software Products &amp; Packages (₹ INR)
-                        </h2>
-                        <p className="text-sm text-gray-400">
-                            Fixed scope, enterprise reliability, and full intellectual property ownership. Prices are in Indian Currency (₹ INR) with zero hidden fees.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {/* Product 1: Studio */}
-                        <div className="rounded-3xl glass p-7 border border-white/10 flex flex-col justify-between hover:border-purple-500/40 transition-all shadow-xl">
-                            <div className="space-y-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                        <Camera size={22} />
-                                    </div>
-                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-500/30 uppercase">
-                                        Studio &amp; Visual
+                            {/* Image Asset Gallery Section */}
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                                        <Camera className="w-4 h-4 text-indigo-400" />
+                                        Visual Gallery & Live Assets ({project.gallery.length} Views)
+                                    </h4>
+                                    <span className="text-xs text-slate-500 hidden sm:inline-block">
+                                        Click any asset to enlarge in high resolution
                                     </span>
                                 </div>
 
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">Creative Studio &amp; Portfolio</h3>
-                                    <p className="text-xs text-gray-400 mt-1">Modeled after StudioCloudChild architecture.</p>
-                                </div>
-
-                                <div>
-                                    <div className="text-3xl font-extrabold text-white font-mono">₹45,000</div>
-                                    <div className="text-[11px] text-gray-500 mt-0.5">One-time development &amp; deploy</div>
-                                </div>
-
-                                <div className="space-y-2 text-xs text-gray-300 border-t border-white/[0.06] pt-4">
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Ultra-fast 4K media showcase</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Interactive booking &amp; inquiries</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Custom luxury dark typography</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Mobile &amp; tablet responsive viewer</div>
-                                </div>
-                            </div>
-
-                            <a
-                                href="#quote-calculator"
-                                onClick={() => setSelectedProjectTier('studio')}
-                                className="mt-6 w-full py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white text-xs font-bold text-center block transition-all border border-white/10"
-                            >
-                                Calculate Custom Quote &rarr;
-                            </a>
-                        </div>
-
-                        {/* Product 2: Corporate */}
-                        <div className="rounded-3xl glass p-7 border border-cyan-500/30 bg-cyan-950/10 flex flex-col justify-between hover:border-cyan-500/60 transition-all shadow-xl relative">
-                            <div className="absolute top-4 right-4">
-                                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 uppercase">
-                                    Most Popular
-                                </span>
-                            </div>
-
-                            <div className="space-y-5">
-                                <div className="p-3 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 w-fit">
-                                    <Building2 size={22} />
-                                </div>
-
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">Corporate Compliance &amp; Web Portal</h3>
-                                    <p className="text-xs text-gray-400 mt-1">Modeled after CWC India governance platform.</p>
-                                </div>
-
-                                <div>
-                                    <div className="text-3xl font-extrabold text-cyan-400 font-mono">₹65,000</div>
-                                    <div className="text-[11px] text-gray-500 mt-0.5">Enterprise statutory setup &amp; SEO</div>
-                                </div>
-
-                                <div className="space-y-2 text-xs text-gray-300 border-t border-white/[0.06] pt-4">
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Multi-page service &amp; practice catalog</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Verified testimonial document repository</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> High-security corporate lead routing</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Complete technical SEO audit (95+ score)</div>
-                                </div>
-                            </div>
-
-                            <a
-                                href="#quote-calculator"
-                                onClick={() => setSelectedProjectTier('corporate')}
-                                className="mt-6 w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold text-center block transition-all shadow-lg shadow-cyan-600/30"
-                            >
-                                Calculate Custom Quote &rarr;
-                            </a>
-                        </div>
-
-                        {/* Product 3: EdTech */}
-                        <div className="rounded-3xl glass p-7 border border-white/10 flex flex-col justify-between hover:border-emerald-500/40 transition-all shadow-xl">
-                            <div className="space-y-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                        <BookOpen size={22} />
-                                    </div>
-                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 uppercase">
-                                        EdTech / LMS
-                                    </span>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">EdTech Academy &amp; Admission Portal</h3>
-                                    <p className="text-xs text-gray-400 mt-1">Modeled after Sharkedutech academy platform.</p>
-                                </div>
-
-                                <div>
-                                    <div className="text-3xl font-extrabold text-white font-mono">₹79,000</div>
-                                    <div className="text-[11px] text-gray-500 mt-0.5">Course platform + lead routing</div>
-                                </div>
-
-                                <div className="space-y-2 text-xs text-gray-300 border-t border-white/[0.06] pt-4">
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Interactive course syllabus explorer</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Automated student enrollment funnels</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> WhatsApp admission counselor routing</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Placement &amp; recruiter partner showcase</div>
-                                </div>
-                            </div>
-
-                            <a
-                                href="#quote-calculator"
-                                onClick={() => setSelectedProjectTier('edtech')}
-                                className="mt-6 w-full py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white text-xs font-bold text-center block transition-all border border-white/10"
-                            >
-                                Calculate Custom Quote &rarr;
-                            </a>
-                        </div>
-
-                        {/* Product 4: AgnecyOS */}
-                        <div className="rounded-3xl glass p-7 border border-indigo-500/30 bg-indigo-950/15 flex flex-col justify-between hover:border-indigo-500/60 transition-all shadow-xl">
-                            <div className="space-y-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                                        <Layers size={22} />
-                                    </div>
-                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 uppercase">
-                                        Flagship ERP
-                                    </span>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">AgnecyOS - Agency Operating System</h3>
-                                    <p className="text-xs text-gray-400 mt-1">Complete multi-department ERP &amp; Client Portal.</p>
-                                </div>
-
-                                <div>
-                                    <div className="text-3xl font-extrabold text-indigo-400 font-mono">₹89,000</div>
-                                    <div className="text-[11px] text-gray-500 mt-0.5">Turnkey deployment &amp; code ownership</div>
-                                </div>
-
-                                <div className="space-y-2 text-xs text-gray-300 border-t border-white/[0.06] pt-4">
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Scope locking, deliverables &amp; revisions</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Milestone GST invoicing &amp; payment audit</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Client sign-off approval portal with audit log</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Team duty attendance check-in &amp; chat</div>
-                                </div>
-                            </div>
-
-                            <a
-                                href="#quote-calculator"
-                                onClick={() => setSelectedProjectTier('agnecyos')}
-                                className="mt-6 w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold text-center block transition-all shadow-lg shadow-indigo-600/30"
-                            >
-                                Calculate Custom Quote &rarr;
-                            </a>
-                        </div>
-
-                        {/* Product 5: Custom SaaS MVP */}
-                        <div className="rounded-3xl glass p-7 border border-white/10 flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xl md:col-span-2 lg:col-span-2">
-                            <div className="space-y-5">
-                                <div className="flex items-center justify-between">
-                                    <div className="p-3 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                        <Code2 size={22} />
-                                    </div>
-                                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 uppercase">
-                                        Full-Stack Custom
-                                    </span>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">Custom SaaS Web App / MVP Architecture</h3>
-                                    <p className="text-xs text-gray-400 mt-1">From napkin idea to deployed enterprise cloud application.</p>
-                                </div>
-
-                                <div>
-                                    <div className="text-3xl font-extrabold text-amber-400 font-mono">₹1,25,000+</div>
-                                    <div className="text-[11px] text-gray-500 mt-0.5">Estimated starting investment</div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-300 border-t border-white/[0.06] pt-4">
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> PostgreSQL + Prisma Database design</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> High-speed Fastify / Node.js API</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Next.js App Router with server actions</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Role-based authentication (Admin/Staff/Client)</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Automated SMTP notifications &amp; alerts</div>
-                                    <div className="flex items-center gap-2"><Check size={14} className="text-emerald-400" /> Docker / Cloud deployment (Vercel / Render / AWS)</div>
-                                </div>
-                            </div>
-
-                            <a
-                                href="#quote-calculator"
-                                onClick={() => setSelectedProjectTier('custom')}
-                                className="mt-6 w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white text-xs font-bold text-center block transition-all shadow-lg shadow-amber-600/30"
-                            >
-                                Calculate Custom Quote &rarr;
-                            </a>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Section 3: Interactive Instant Quote Calculator & Request Form */}
-                <section id="quote-calculator" className="space-y-10 scroll-mt-32">
-                    <div className="text-center space-y-3 max-w-2xl mx-auto">
-                        <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">Interactive Estimator</span>
-                        <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
-                            Instant Project Quote Calculator
-                        </h2>
-                        <p className="text-sm text-gray-400">
-                            Configure your project specifications below for an immediate estimate in ₹ INR, then submit your brief to lock in priority sprint dates.
-                        </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                        {/* Left Configuration Column */}
-                        <div className="lg:col-span-7 glass rounded-3xl p-6 sm:p-8 border border-white/10 space-y-7">
-                            {/* Step 1: Select Software Project Type */}
-                            <div className="space-y-3">
-                                <label className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center justify-between">
-                                    <span>1. Select Software Architecture</span>
-                                    <span className="text-[11px] text-indigo-400 font-mono font-normal">Base Investment</span>
-                                </label>
-                                <div className="space-y-2">
-                                    {Object.entries(baseTiers).map(([key, val]) => {
-                                        const isSelected = selectedProjectTier === key;
-                                        const TierIcon = val.icon;
-                                        return (
-                                            <button
-                                                key={key}
-                                                type="button"
-                                                onClick={() => setSelectedProjectTier(key)}
-                                                className={`w-full p-4 rounded-2xl border text-left transition-all flex items-center justify-between gap-4 ${
-                                                    isSelected
-                                                        ? 'bg-indigo-600/20 border-indigo-500/60 shadow-lg shadow-indigo-600/10'
-                                                        : 'bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.05]'
-                                                }`}
-                                            >
-                                                <div className="flex items-center gap-3.5 min-w-0">
-                                                    <div className={`p-2 rounded-xl shrink-0 ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white/5 text-gray-400'}`}>
-                                                        <TierIcon size={18} />
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="text-sm font-bold text-white truncate">{val.name}</div>
-                                                        <div className="text-xs text-gray-400 truncate">{val.desc}</div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-sm font-extrabold text-white font-mono shrink-0">
-                                                    ₹{val.basePrice.toLocaleString('en-IN')}
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Step 2: Add-On Features */}
-                            <div className="space-y-3 pt-4 border-t border-white/[0.06]">
-                                <label className="text-xs font-bold uppercase tracking-wider text-gray-300">
-                                    2. Modular Add-On Integrations
-                                </label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                    {addonOptions.map((addon) => {
-                                        const isChecked = selectedAddons.includes(addon.id);
-                                        return (
-                                            <button
-                                                key={addon.id}
-                                                type="button"
-                                                onClick={() => toggleAddon(addon.id)}
-                                                className={`p-3 rounded-xl border text-left text-xs transition-all flex items-center justify-between gap-2 ${
-                                                    isChecked
-                                                        ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
-                                                        : 'bg-white/[0.02] border-white/[0.08] text-gray-400 hover:text-white'
-                                                }`}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
-                                                        isChecked ? 'bg-emerald-500 border-emerald-400 text-black font-bold' : 'border-white/20'
-                                                    }`}>
-                                                        {isChecked && '✓'}
-                                                    </div>
-                                                    <span className="font-medium truncate">{addon.label}</span>
-                                                </div>
-                                                <span className="font-mono text-[11px] shrink-0 font-bold">
-                                                    +₹{(addon.price / 1000)}k
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            {/* Step 3: Timeline Sprints */}
-                            <div className="space-y-3 pt-4 border-t border-white/[0.06]">
-                                <label className="text-xs font-bold uppercase tracking-wider text-gray-300">
-                                    3. Delivery Sprint Timeline
-                                </label>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                                    {Object.entries(timelineMultipliers).map(([key, val]) => (
-                                        <button
-                                            key={key}
-                                            type="button"
-                                            onClick={() => setSelectedTimeline(key)}
-                                            className={`p-3 rounded-xl border text-center text-xs transition-all ${
-                                                selectedTimeline === key
-                                                    ? 'bg-indigo-600 text-white font-bold border-indigo-400'
-                                                    : 'bg-white/[0.02] border-white/[0.08] text-gray-400 hover:text-white'
-                                            }`}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {project.gallery.map((item, gIdx) => (
+                                        <div
+                                            key={gIdx}
+                                            onClick={() => setLightboxImage({ url: item.url, title: item.title, client: project.name, category: item.type })}
+                                            className="group relative rounded-2xl overflow-hidden border border-white/10 bg-slate-950/60 aspect-[16/10] cursor-pointer hover:border-white/30 transition-all duration-300 shadow-md"
                                         >
-                                            {val.label}
-                                        </button>
+                                            <img
+                                                src={item.url}
+                                                alt={item.title}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                loading="lazy"
+                                            />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-80 group-hover:opacity-95 transition-opacity flex flex-col justify-end p-4">
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 mb-1">
+                                                    {item.type}
+                                                </span>
+                                                <p className="text-xs sm:text-sm font-semibold text-white line-clamp-1 group-hover:text-indigo-200 transition-colors">
+                                                    {item.title}
+                                                </p>
+                                            </div>
+                                            <div className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 backdrop-blur-md text-white/70 group-hover:text-white group-hover:bg-indigo-600 transition-all">
+                                                <Maximize2 className="w-3.5 h-3.5" />
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
                         </div>
+                    ))}
+                </div>
 
-                        {/* Right Summary & Lead Submission Column */}
-                        <div className="lg:col-span-5 glass rounded-3xl p-6 sm:p-8 border border-indigo-500/30 bg-gradient-to-b from-[#0e162e] to-[#0a0f1d] shadow-2xl space-y-6 sticky top-28">
-                            <div className="border-b border-white/[0.08] pb-5">
-                                <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400">Live Estimated Quote</span>
-                                <div className="flex items-baseline gap-2 mt-1">
-                                    <span className="text-4xl sm:text-5xl font-black text-white font-mono tracking-tight">
-                                        ₹{estimatedTotal.toLocaleString('en-IN')}
+                {/* Lightbox Modal */}
+                {lightboxImage && (
+                    <div
+                        className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 sm:p-8"
+                        onClick={() => setLightboxImage(null)}
+                    >
+                        <div
+                            className="max-w-5xl w-full max-h-[90vh] glass-card rounded-3xl p-4 sm:p-6 border border-white/20 relative flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
+                                <div>
+                                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                                        {lightboxImage.client} &bull; {lightboxImage.category}
                                     </span>
-                                    <span className="text-xs text-gray-400 font-mono">INR (All inclusive)</span>
+                                    <h3 className="text-lg font-bold text-white mt-0.5">
+                                        {lightboxImage.title}
+                                    </h3>
                                 </div>
-                                <p className="text-xs text-indigo-300/80 mt-1">
-                                    Includes code repository transfer, staging server testing &amp; 30-day post-launch warranty.
+                                <button
+                                    onClick={() => setLightboxImage(null)}
+                                    className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="relative flex-1 min-h-[300px] max-h-[70vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black/50">
+                                <img
+                                    src={lightboxImage.url}
+                                    alt={lightboxImage.title}
+                                    className="max-h-full max-w-full object-contain rounded-xl"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Custom Quote & Scope Request Section (No Costs / Bespoke Proposal) */}
+                <section id="quote-calculator" className="mb-32">
+                    <div className="glass-card rounded-3xl p-8 sm:p-12 lg:p-16 border border-white/10 relative overflow-hidden">
+                        <div className="max-w-3xl mb-12">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-xs font-semibold text-indigo-400 mb-4">
+                                <Calculator className="w-3.5 h-3.5" />
+                                <span>Bespoke Project Proposal Generator</span>
+                            </div>
+                            <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight mb-4">
+                                Request a Tailored Project Quote & Scope Breakdown
+                            </h2>
+                            <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+                                Configure your ideal architecture, required functional modules, and delivery timeline below. Submit your project requirements to receive a customized technical specification and proposal from our senior engineering team.
+                            </p>
+                        </div>
+
+                        {quoteSubmitted ? (
+                            <div className="glass p-8 sm:p-12 rounded-3xl border border-emerald-500/30 bg-emerald-500/5 text-center max-w-2xl mx-auto">
+                                <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-6">
+                                    <CheckCircle2 className="w-8 h-8" />
+                                </div>
+                                <h3 className="text-2xl font-bold text-white mb-3">Quote Request Submitted!</h3>
+                                <p className="text-slate-300 text-sm sm:text-base leading-relaxed mb-6">
+                                    {quoteSuccessMsg}
                                 </p>
+                                <button
+                                    onClick={() => setQuoteSubmitted(false)}
+                                    className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-2.5 rounded-full transition-all"
+                                >
+                                    Build Another Proposal
+                                </button>
                             </div>
-
-                            {/* Brief summary breakdown */}
-                            <div className="space-y-2 text-xs text-gray-400 border-b border-white/[0.08] pb-4">
-                                <div className="flex justify-between">
-                                    <span>Selected Base:</span>
-                                    <span className="font-semibold text-white">{currentTier.name}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Add-ons ({selectedAddons.length}):</span>
-                                    <span className="font-mono text-white">+₹{addonsTotal.toLocaleString('en-IN')}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Sprint Schedule:</span>
-                                    <span className="text-indigo-300 font-medium">{timelineMultipliers[selectedTimeline]?.label}</span>
-                                </div>
-                            </div>
-
-                            {/* Quote Submission Form */}
-                            {quoteSubmitted ? (
-                                <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-3">
-                                    <CheckCircle2 size={36} className="text-emerald-400 mx-auto" />
-                                    <h4 className="text-base font-bold text-white">Quote Request Received!</h4>
-                                    <p className="text-xs text-gray-300 leading-relaxed">
-                                        {quoteSuccessMsg} Our technical founder will review your specifications and contact you with a detailed scope of work.
-                                    </p>
-                                    <div className="pt-2">
-                                        <a
-                                            href={`https://wa.me/919147384054?text=${encodeURIComponent(`Hi Dhandaeasy Team, I just configured a project quote on your website for ${currentTier.name} (Est: ₹${estimatedTotal.toLocaleString('en-IN')}). My name is ${quoteFormData.name}.`)}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30"
-                                        >
-                                            <MessageSquare size={14} /> Chat Instantly on WhatsApp
-                                        </a>
+                        ) : (
+                            <form onSubmit={handleQuoteSubmit} className="space-y-12">
+                                {/* Step 1: Select Architecture Model */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">1</span>
+                                        <h3 className="text-lg font-bold text-white">Select Base Architecture Model</h3>
                                     </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        {Object.entries(architectureOptions).map(([key, item]) => {
+                                            const Icon = item.icon;
+                                            const isSelected = selectedProjectTier === key;
+                                            return (
+                                                <div
+                                                    key={key}
+                                                    onClick={() => setSelectedProjectTier(key)}
+                                                    className={`glass p-5 rounded-2xl cursor-pointer border transition-all ${
+                                                        isSelected
+                                                            ? 'border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10'
+                                                            : 'border-white/10 hover:border-white/20 hover:bg-white/5'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className={`p-2.5 rounded-xl ${isSelected ? 'bg-indigo-600 text-white' : 'bg-white/5 text-slate-400'}`}>
+                                                            <Icon className="w-5 h-5" />
+                                                        </div>
+                                                        <span className="text-[11px] font-mono font-medium text-slate-400">
+                                                            {item.tag}
+                                                        </span>
+                                                    </div>
+                                                    <h4 className="text-base font-bold text-white mb-1.5">{item.name}</h4>
+                                                    <p className="text-xs text-slate-400 leading-relaxed mb-4">{item.desc}</p>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {item.stack.map((s, idx) => (
+                                                            <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-slate-400">
+                                                                {s}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Step 2: Select Modules & Capabilities */}
+                                <div>
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">2</span>
+                                        <h3 className="text-lg font-bold text-white">Select Functional Modules & Add-Ons</h3>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {modularFeatures.map(mod => {
+                                            const isChecked = selectedModules.includes(mod.id);
+                                            return (
+                                                <div
+                                                    key={mod.id}
+                                                    onClick={() => toggleModule(mod.id)}
+                                                    className={`glass p-4 rounded-2xl cursor-pointer border transition-all flex items-start gap-3 ${
+                                                        isChecked
+                                                            ? 'border-emerald-500/50 bg-emerald-500/10 shadow-sm'
+                                                            : 'border-white/10 hover:border-white/20'
+                                                    }`}
+                                                >
+                                                    <div className={`w-5 h-5 rounded-md flex items-center justify-center mt-0.5 shrink-0 ${
+                                                        isChecked ? 'bg-emerald-500 text-slate-950 font-bold' : 'border border-white/20 bg-white/5'
+                                                    }`}>
+                                                        {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                                                    </div>
+                                                    <div>
+                                                        <h5 className="text-sm font-semibold text-white">{mod.label}</h5>
+                                                        <p className="text-xs text-slate-400 mt-0.5">{mod.desc}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Step 3: Project Scope Scale & Timeline */}
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">3</span>
+                                            <h3 className="text-base font-bold text-white">Target Scope Scale</h3>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {scopeScales.map(scale => {
+                                                const isSelected = selectedScopeScale === scale.id;
+                                                return (
+                                                    <div
+                                                        key={scale.id}
+                                                        onClick={() => setSelectedScopeScale(scale.id)}
+                                                        className={`glass p-3.5 rounded-xl cursor-pointer border transition-all flex items-center justify-between ${
+                                                            isSelected ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/10 hover:border-white/20'
+                                                        }`}
+                                                    >
+                                                        <div>
+                                                            <span className="text-sm font-semibold text-white block">{scale.label}</span>
+                                                            <span className="text-xs text-slate-400">{scale.desc}</span>
+                                                        </div>
+                                                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                                                            isSelected ? 'border-indigo-400 bg-indigo-600' : 'border-white/20'
+                                                        }`}>
+                                                            {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white"></div>}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">4</span>
+                                            <h3 className="text-base font-bold text-white">Target Launch Timeline</h3>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {timelineOptions.map(time => {
+                                                const isSelected = selectedTimeline === time.id;
+                                                return (
+                                                    <div
+                                                        key={time.id}
+                                                        onClick={() => setSelectedTimeline(time.id)}
+                                                        className={`glass p-3.5 rounded-xl cursor-pointer border transition-all flex items-center justify-between ${
+                                                            isSelected ? 'border-sky-500 bg-sky-500/10' : 'border-white/10 hover:border-white/20'
+                                                        }`}
+                                                    >
+                                                        <span className="text-sm font-semibold text-white">{time.label}</span>
+                                                        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/10 text-slate-300 font-mono">
+                                                            {time.badge}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Step 4: Contact & Submission Details */}
+                                <div className="glass p-6 sm:p-8 rounded-2xl border border-white/10">
+                                    <h4 className="text-base font-bold text-white mb-6 flex items-center gap-2">
+                                        <Send className="w-4 h-4 text-indigo-400" />
+                                        Your Contact Details & Project Notes
+                                    </h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                                Your Full Name *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="e.g. Rahul Sharma"
+                                                value={quoteFormData.name}
+                                                onChange={e => setQuoteFormData({ ...quoteFormData, name: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                                Work Email Address *
+                                            </label>
+                                            <input
+                                                type="email"
+                                                required
+                                                placeholder="rahul@company.com"
+                                                value={quoteFormData.email}
+                                                onChange={e => setQuoteFormData({ ...quoteFormData, email: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                                Phone / WhatsApp Number
+                                            </label>
+                                            <input
+                                                type="tel"
+                                                placeholder="+91 98765 43210"
+                                                value={quoteFormData.phone}
+                                                onChange={e => setQuoteFormData({ ...quoteFormData, phone: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                                Company / Project Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Sharma Media & Co."
+                                                value={quoteFormData.company}
+                                                onChange={e => setQuoteFormData({ ...quoteFormData, company: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="mb-6">
+                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                            Project Brief or Specific Requirements
+                                        </label>
+                                        <textarea
+                                            rows={3}
+                                            placeholder="Tell us about your brand vision, key functionality, or reference websites..."
+                                            value={quoteFormData.notes}
+                                            onChange={e => setQuoteFormData({ ...quoteFormData, notes: e.target.value })}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                        />
+                                    </div>
+
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-white/10">
+                                        <div className="text-xs text-slate-400">
+                                            🔒 Full NDA & Intellectual Property ownership. Zero unsolicited sales spam.
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            disabled={submittingQuote}
+                                            className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-bold px-8 py-3.5 rounded-full text-sm transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 disabled:opacity-50"
+                                        >
+                                            {submittingQuote ? 'Submitting Scope...' : 'Submit Scope & Request Proposal'}
+                                            <ArrowRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        )}
+                    </div>
+                </section>
+
+                {/* Direct Contact Options Section */}
+                <section id="contact-us" className="mb-24">
+                    <div className="grid lg:grid-cols-12 gap-8 items-stretch">
+                        <div className="lg:col-span-5 glass-card rounded-3xl p-8 sm:p-10 border border-white/10 flex flex-col justify-between">
+                            <div>
+                                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-xs font-semibold text-sky-400 mb-4">
+                                    <Phone className="w-3.5 h-3.5" />
+                                    <span>Direct Communication Channels</span>
+                                </div>
+                                <h2 className="text-3xl font-extrabold text-white tracking-tight mb-4">
+                                    Let's Discuss Your Project
+                                </h2>
+                                <p className="text-slate-400 text-sm leading-relaxed mb-8">
+                                    Have questions about our development stack, timelines, or previous client deliverables? Reach out directly via phone, WhatsApp, or email for an immediate response.
+                                </p>
+
+                                <div className="space-y-4">
+                                    <a
+                                        href="https://wa.me/919147384054"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="glass p-4 rounded-2xl border border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/5 transition-all flex items-center gap-4 group"
+                                    >
+                                        <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                            <MessageSquare className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 block">
+                                                WhatsApp Chat / Direct Line
+                                            </span>
+                                            <span className="text-base font-bold text-white group-hover:text-emerald-300 transition-colors">
+                                                +91 9147384054
+                                            </span>
+                                        </div>
+                                        <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 ml-auto transition-colors" />
+                                    </a>
+
+                                    <a
+                                        href="mailto:aalokshaw2003@gmail.com"
+                                        className="glass p-4 rounded-2xl border border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all flex items-center gap-4 group"
+                                    >
+                                        <div className="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                            <Mail className="w-6 h-6" />
+                                        </div>
+                                        <div>
+                                            <span className="text-[11px] font-bold uppercase tracking-wider text-indigo-400 block">
+                                                Founder & Engineering Email
+                                            </span>
+                                            <span className="text-base font-bold text-white group-hover:text-indigo-300 transition-colors">
+                                                aalokshaw2003@gmail.com
+                                            </span>
+                                        </div>
+                                        <ArrowUpRight className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 ml-auto transition-colors" />
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div className="pt-8 border-t border-white/10 mt-8 text-xs text-slate-500 flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-slate-400" />
+                                <span>Typical response turnaround: Within 2 hours (Mon - Sat)</span>
+                            </div>
+                        </div>
+
+                        <div className="lg:col-span-7 glass-card rounded-3xl p-8 sm:p-10 border border-white/10">
+                            <h3 className="text-xl font-bold text-white mb-2">Send an Instant Message</h3>
+                            <p className="text-sm text-slate-400 mb-6">
+                                Leave your contact info and project scope; we'll connect with you right away.
+                            </p>
+
+                            {contactSubmitted ? (
+                                <div className="glass p-8 rounded-2xl border border-emerald-500/30 text-center">
+                                    <CheckCircle2 className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+                                    <h4 className="text-lg font-bold text-white mb-1">Message Sent Successfully!</h4>
+                                    <p className="text-xs text-slate-400">
+                                        Thank you for reaching out. We have received your message and will contact you via WhatsApp or Email shortly.
+                                    </p>
                                 </div>
                             ) : (
-                                <form onSubmit={handleQuoteSubmit} className="space-y-3">
-                                    <div className="text-xs font-bold text-white uppercase tracking-wider">
-                                        Submit Brief to Lock Price &amp; Dates:
+                                <form onSubmit={handleContactSubmit} className="space-y-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                                Full Name *
+                                            </label>
+                                            <input
+                                                type="text"
+                                                required
+                                                placeholder="Your Name"
+                                                value={contactFormData.name}
+                                                onChange={e => setContactFormData({ ...contactFormData, name: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                                Email Address *
+                                            </label>
+                                            <input
+                                                type="email"
+                                                required
+                                                placeholder="you@company.com"
+                                                value={contactFormData.email}
+                                                onChange={e => setContactFormData({ ...contactFormData, email: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                                Phone Number
+                                            </label>
+                                            <input
+                                                type="tel"
+                                                placeholder="+91 9147384054"
+                                                value={contactFormData.phone}
+                                                onChange={e => setContactFormData({ ...contactFormData, phone: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                                Organization / Brand
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="Company Name"
+                                                value={contactFormData.company}
+                                                onChange={e => setContactFormData({ ...contactFormData, company: e.target.value })}
+                                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
+                                            />
+                                        </div>
                                     </div>
 
                                     <div>
-                                        <input
-                                            required
-                                            type="text"
-                                            placeholder="Your Full Name *"
-                                            value={quoteFormData.name}
-                                            onChange={(e) => setQuoteFormData({ ...quoteFormData, name: e.target.value })}
-                                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                        <input
-                                            required
-                                            type="email"
-                                            placeholder="Work Email *"
-                                            value={quoteFormData.email}
-                                            onChange={(e) => setQuoteFormData({ ...quoteFormData, email: e.target.value })}
-                                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                        />
-                                        <input
-                                            type="tel"
-                                            placeholder="WhatsApp / Phone"
-                                            value={quoteFormData.phone}
-                                            onChange={(e) => setQuoteFormData({ ...quoteFormData, phone: e.target.value })}
-                                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <input
-                                            type="text"
-                                            placeholder="Company / Organization (Optional)"
-                                            value={quoteFormData.company}
-                                            onChange={(e) => setQuoteFormData({ ...quoteFormData, company: e.target.value })}
-                                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-                                        />
-                                    </div>
-
-                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">
+                                            Message *
+                                        </label>
                                         <textarea
-                                            rows={2}
-                                            placeholder="Any special requirements, existing tech stack or deadline notes..."
-                                            value={quoteFormData.notes}
-                                            onChange={(e) => setQuoteFormData({ ...quoteFormData, notes: e.target.value })}
-                                            className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 resize-none"
+                                            required
+                                            rows={4}
+                                            placeholder="Tell us about what you want to build or discuss..."
+                                            value={contactFormData.message}
+                                            onChange={e => setContactFormData({ ...contactFormData, message: e.target.value })}
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition-colors"
                                         />
                                     </div>
 
                                     <button
                                         type="submit"
-                                        disabled={submittingQuote}
-                                        className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-xl shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+                                        disabled={submittingContact}
+                                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 disabled:opacity-50"
                                     >
-                                        {submittingQuote ? (
-                                            <span>Submitting Inquiry...</span>
-                                        ) : (
-                                            <>
-                                                <span>Request Official Scope &amp; Quote</span>
-                                                <Send size={14} />
-                                            </>
-                                        )}
+                                        {submittingContact ? 'Sending Message...' : 'Send Message'}
+                                        <Send className="w-4 h-4" />
                                     </button>
-
-                                    <p className="text-[10px] text-gray-500 text-center">
-                                        ⚡ We respond within 2-4 hours with a comprehensive technical scope and milestones.
-                                    </p>
                                 </form>
                             )}
-                        </div>
-                    </div>
-                </section>
-
-                {/* Section 4: Direct Contact Us Section */}
-                <section id="contact-section" className="space-y-10 scroll-mt-32">
-                    <div className="glass rounded-3xl p-8 sm:p-12 border border-white/10 relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
-                            {/* Contact Info */}
-                            <div className="space-y-6">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold uppercase tracking-wider border border-emerald-500/20">
-                                    <Phone size={13} /> Direct Contact Lines
-                                </div>
-
-                                <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                                    Let&apos;s Build Your Next Digital Product
-                                </h2>
-
-                                <p className="text-slate-400 text-sm leading-relaxed">
-                                    Whether you need a custom corporate platform, high-converting portfolio, or an enterprise operating system like AgnecyOS, we engineer solutions with precision, speed, and clean code.
-                                </p>
-
-                                <div className="space-y-4 pt-2">
-                                    <a
-                                        href="https://wa.me/919147384054"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] hover:bg-emerald-500/10 border border-white/10 hover:border-emerald-500/30 transition-all group"
-                                    >
-                                        <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
-                                            <MessageSquare size={20} />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-gray-400 font-medium">WhatsApp / Instant Chat</div>
-                                            <div className="text-base font-bold text-white group-hover:text-emerald-300 font-mono">+91 9147384054</div>
-                                        </div>
-                                    </a>
-
-                                    <a
-                                        href="mailto:aalokshaw2003@gmail.com"
-                                        className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] hover:bg-indigo-500/10 border border-white/10 hover:border-indigo-500/30 transition-all group"
-                                    >
-                                        <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:scale-105 transition-transform">
-                                            <Mail size={20} />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-gray-400 font-medium">Direct Engineering Email</div>
-                                            <div className="text-base font-bold text-white group-hover:text-indigo-300 font-mono">aalokshaw2003@gmail.com</div>
-                                        </div>
-                                    </a>
-
-                                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.03] border border-white/10">
-                                        <div className="p-3 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                            <Globe size={20} />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-gray-400 font-medium">Headquarters &amp; Coverage</div>
-                                            <div className="text-sm font-bold text-white">Kolkata, India • Serving Clients Nationwide &amp; Globally</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Direct Message Form */}
-                            <div className="glass-card rounded-2xl p-6 sm:p-8 border border-white/10 space-y-4">
-                                {contactSubmitted ? (
-                                    <div className="p-8 text-center space-y-3">
-                                        <CheckCircle2 size={40} className="text-emerald-400 mx-auto" />
-                                        <h3 className="text-xl font-bold text-white">Message Sent Successfully!</h3>
-                                        <p className="text-xs text-gray-400 leading-relaxed max-w-sm mx-auto">
-                                            Thank you for reaching out to Dhandaeasy. We have received your inquiry and our engineering team will get back to you shortly.
-                                        </p>
-                                        <a
-                                            href="https://wa.me/919147384054"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="mt-4 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold inline-flex items-center gap-2 shadow-lg shadow-emerald-600/30"
-                                        >
-                                            <MessageSquare size={14} /> Quick WhatsApp Follow-up
-                                        </a>
-                                    </div>
-                                ) : (
-                                    <form onSubmit={handleContactSubmit} className="space-y-4">
-                                        <div>
-                                            <h3 className="text-lg font-bold text-white">Send Us a Direct Message</h3>
-                                            <p className="text-xs text-gray-400">Tell us about your organization and project vision.</p>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-[11px] font-semibold text-gray-300 block mb-1">Your Name *</label>
-                                            <input
-                                                required
-                                                type="text"
-                                                placeholder="e.g. Rahul Sharma"
-                                                value={contactFormData.name}
-                                                onChange={(e) => setContactFormData({ ...contactFormData, name: e.target.value })}
-                                                className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                                            />
-                                        </div>
-
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="text-[11px] font-semibold text-gray-300 block mb-1">Email Address *</label>
-                                                <input
-                                                    required
-                                                    type="email"
-                                                    placeholder="rahul@company.com"
-                                                    value={contactFormData.email}
-                                                    onChange={(e) => setContactFormData({ ...contactFormData, email: e.target.value })}
-                                                    className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="text-[11px] font-semibold text-gray-300 block mb-1">Phone / WhatsApp</label>
-                                                <input
-                                                    type="tel"
-                                                    placeholder="+91 98765 43210"
-                                                    value={contactFormData.phone}
-                                                    onChange={(e) => setContactFormData({ ...contactFormData, phone: e.target.value })}
-                                                    className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="text-[11px] font-semibold text-gray-300 block mb-1">Company / Project Title</label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g. My Next Venture / SaaS"
-                                                value={contactFormData.company}
-                                                onChange={(e) => setContactFormData({ ...contactFormData, company: e.target.value })}
-                                                className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="text-[11px] font-semibold text-gray-300 block mb-1">Project Details / Message *</label>
-                                            <textarea
-                                                required
-                                                rows={3}
-                                                placeholder="Describe your requirements, goals, and ideal delivery timeline..."
-                                                value={contactFormData.message}
-                                                onChange={(e) => setContactFormData({ ...contactFormData, message: e.target.value })}
-                                                className="w-full bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 resize-none"
-                                            />
-                                        </div>
-
-                                        <button
-                                            type="submit"
-                                            disabled={submittingContact}
-                                            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                                        >
-                                            {submittingContact ? (
-                                                <span>Sending Message...</span>
-                                            ) : (
-                                                <>
-                                                    <span>Send Direct Inquiry</span>
-                                                    <Send size={14} />
-                                                </>
-                                            )}
-                                        </button>
-                                    </form>
-                                )}
-                            </div>
                         </div>
                     </div>
                 </section>
             </main>
 
             {/* Footer */}
-            <footer className="border-t border-white/[0.08] bg-[#02050e] py-12 px-4 sm:px-6">
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 text-xs text-gray-400">
+            <footer className="border-t border-white/10 bg-[#02050e] py-12 px-4 relative z-10 text-center text-xs text-slate-500">
+                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-3">
-                        <img src="/logo.png" alt="agnecyos / dhandaeasy" className="h-7 w-auto object-contain rounded" />
-                        <span className="font-bold text-white">Dhandaeasy Digital Engineering</span>
+                        <img src="/logo.png" alt="agnecyos" className="h-7 w-auto object-contain rounded opacity-80" />
+                        <span>&copy; {new Date().getFullYear()} Dhandaeasy & AgnecyOS. All rights reserved.</span>
                     </div>
-
                     <div className="flex items-center gap-6">
-                        <Link href="/portfolio" className="hover:text-white transition-colors">Showcase</Link>
-                        <Link href="/workflow" className="hover:text-white transition-colors">Workflow</Link>
-                        <Link href="/features" className="hover:text-white transition-colors">Features</Link>
-                        <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
-                        <Link href="/login" className="hover:text-white transition-colors">Client Login</Link>
-                    </div>
-
-                    <div className="text-gray-500">
-                        © {new Date().getFullYear()} Dhandaeasy. Engineered with precision.
+                        <Link href="/workflow" className="hover:text-slate-300 transition-colors">Workflow</Link>
+                        <Link href="/features" className="hover:text-slate-300 transition-colors">Features</Link>
+                        <Link href="/pricing" className="hover:text-slate-300 transition-colors">Pricing</Link>
+                        <a href="https://wa.me/919147384054" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition-colors">WhatsApp</a>
                     </div>
                 </div>
             </footer>

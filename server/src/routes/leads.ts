@@ -230,7 +230,7 @@ export async function leadRoutes(server: FastifyInstance) {
             phone: z.string().optional(),
             company: z.string().optional(),
             projectType: z.string().default('Custom Web Application'),
-            budget: z.coerce.number().default(50000),
+            budget: z.union([z.number(), z.string()]).optional(),
             timeline: z.string().optional(),
             notes: z.string().optional(),
             services: z.array(z.string()).optional()
@@ -267,11 +267,14 @@ export async function leadRoutes(server: FastifyInstance) {
             return reply.code(500).send({ error: 'System administrator not available.' });
         }
 
+        const budgetValue = typeof data.budget === 'number' ? data.budget : (Number(data.budget) || 0);
+        const budgetDisplay = data.budget ? String(data.budget) : 'To be discussed / Custom Scope';
+
         const leadNotes = `[Website Quote Inquiry]
 Project Type: ${data.projectType}
-Budget: ₹${data.budget.toLocaleString('en-IN')}
+Budget / Scope: ${budgetDisplay}
 Timeline: ${data.timeline || 'Flexible'}
-Services Requested: ${data.services && data.services.length > 0 ? data.services.join(', ') : 'Standard Build'}
+Services / Modules Requested: ${data.services && data.services.length > 0 ? data.services.join(', ') : 'Custom Scope'}
 Client Phone: ${data.phone || 'N/A'}
 Notes: ${data.notes || 'No specific notes provided'}`;
 
@@ -281,7 +284,7 @@ Notes: ${data.notes || 'No specific notes provided'}`;
                 email: data.email,
                 phone: data.phone || null,
                 company: data.company || 'Website Inquiry',
-                value: data.budget,
+                value: budgetValue,
                 status: 'NEW',
                 priority: 'HIGH',
                 notes: leadNotes,
@@ -294,15 +297,15 @@ Notes: ${data.notes || 'No specific notes provided'}`;
         sendProcessUpdateEmail({
             to: owner.email,
             category: 'LEAD',
-            title: `🎯 New Quote Request from ${data.name} (₹${data.budget.toLocaleString('en-IN')})`,
-            description: `A new client has requested a custom project quote on Dhandaeasy Showcase for "${data.projectType}".`,
+            title: `🎯 New Project Quote Request: ${data.name} (${data.projectType})`,
+            description: `A prospective client has requested a tailored quote / project proposal on Dhandaeasy Showcase for "${data.projectType}".`,
             projectName: data.projectType,
             metaDetails: [
                 { label: 'Client Name', value: data.name },
                 { label: 'Client Email', value: data.email },
                 { label: 'Phone / WhatsApp', value: data.phone || 'Not provided' },
                 { label: 'Company', value: data.company || 'Direct Client' },
-                { label: 'Estimated Budget', value: `₹${data.budget.toLocaleString('en-IN')}` },
+                { label: 'Target Scope / Budget', value: budgetDisplay },
                 { label: 'Timeline', value: data.timeline || 'Flexible' }
             ],
             actionText: 'View in Leads Pipeline',
