@@ -50,9 +50,9 @@ export default function Sidebar({
         ? Math.max(0, Math.ceil((new Date(user.trialEndsAt).getTime() - Date.now()) / (1000 * 3600 * 24)))
         : 0;
 
-    const userRole = (user?.role || 'OWNER').toUpperCase();
+    const userRole = (user?.role || 'TEAM_MEMBER').toUpperCase();
     const userDept = (user?.department || (userRole === 'SALES' ? 'SALES' : (userRole === 'DEVELOPER' ? 'DEVELOPMENT' : 'MANAGEMENT'))).toUpperCase();
-    const isCompanyAdmin = userRole === 'ADMIN' || userRole === 'OWNER';
+    const isCompanyAdmin = Boolean(user && (userRole === 'ADMIN' || userRole === 'OWNER'));
     const isSales = !isCompanyAdmin && (userDept === 'SALES' || userRole === 'SALES');
     const isTech = !isCompanyAdmin && (userDept === 'DEVELOPMENT' || userDept === 'TECH_DEV' || userDept === 'TECH' || userRole === 'DEVELOPER');
     const isLeadership = !isCompanyAdmin && (userDept === 'MANAGEMENT' || userDept === 'LEADERSHIP');

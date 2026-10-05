@@ -11,7 +11,7 @@ import {
     ArrowUpRight, Bell, Sparkles, Download, ExternalLink, X, Command,
     AlertCircle, FolderPlus, UserCheck, Edit3, ArrowRight, ArrowLeft,
     Phone, Mail, MessageSquare, Award, Flame, UserPlus, Filter, MoreVertical,
-    Key, Eye, EyeOff, Copy
+    Key, Eye, EyeOff, Copy, ClipboardList
 } from 'lucide-react';
 import Sidebar from '@/app/components/Sidebar';
 import LandingPage from '@/app/components/LandingPage';
@@ -198,9 +198,9 @@ export default function Dashboard() {
     const [editingTeamMember, setEditingTeamMember] = useState<TeamMember | null>(null);
     const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
 
-    const userRole = (user?.role || 'OWNER').toUpperCase();
+    const userRole = (user?.role || 'TEAM_MEMBER').toUpperCase();
     const userDept = (user?.department || (userRole === 'SALES' ? 'SALES' : (userRole === 'DEVELOPER' ? 'DEVELOPMENT' : 'MANAGEMENT'))).toUpperCase();
-    const isCompanyAdmin = userRole === 'ADMIN' || userRole === 'OWNER';
+    const isCompanyAdmin = Boolean(user && (userRole === 'ADMIN' || userRole === 'OWNER'));
     const isSales = !isCompanyAdmin && (userDept === 'SALES' || userRole === 'SALES');
     const isTech = !isCompanyAdmin && (userDept === 'DEVELOPMENT' || userDept === 'TECH_DEV' || userDept === 'TECH' || userRole === 'DEVELOPER');
     const isLeadership = !isCompanyAdmin && (userDept === 'MANAGEMENT' || userDept === 'LEADERSHIP');
@@ -1682,7 +1682,7 @@ export default function Dashboard() {
                     tasks: tasks.filter(t => t.status !== 'DONE').length,
                     invoices: invoices.length,
                     approvals: operationalPriorities.pendingApprovalsCount,
-                    team: team.length
+                    team: isCompanyAdmin ? team.length : undefined
                 }}
             />
 
