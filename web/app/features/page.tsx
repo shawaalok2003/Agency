@@ -54,7 +54,7 @@ export default function FeaturesPage() {
                 <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4">
                     <div className="glass max-w-7xl w-full flex items-center justify-between px-8 py-4 rounded-full">
                         <Link href="/" className="flex items-center gap-3">
-                            <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                            <img src="/logo.png" alt="agnecyos" className="h-12 md:h-14 w-auto object-contain rounded-xl border border-white/15 shadow-md hover:scale-105 transition-all" />
                         </Link>
                         <div className="hidden md:flex items-center gap-8">
                             <Link href="/portfolio" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Showcase</Link>
@@ -263,7 +263,7 @@ export default function FeaturesPage() {
                     <div className="flex flex-col md:flex-row justify-between items-center gap-8">
                         <div className="flex items-center gap-3">
                             <Link href="/">
-                                <img src="/logo.png" alt="agnecyos" className="h-8 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                                <img src="/logo.png" alt="agnecyos" className="h-10 w-auto object-contain rounded-lg border border-white/10 shadow-sm opacity-90" />
                             </Link>
                             <p className="text-gray-500 text-sm ml-4 border-l border-[rgba(255,255,255,0.05)] pl-4">© 2026 agnecyos Inc.</p>
                         </div>

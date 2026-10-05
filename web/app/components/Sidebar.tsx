@@ -299,7 +299,7 @@ export default function Sidebar({
                         <img
                             src="/logo.png"
                             alt="agnecyos"
-                            className="h-9 w-auto max-w-[175px] object-contain rounded-lg border border-white/10 group-hover:border-indigo-500/40 transition-all shadow-md shadow-indigo-500/10"
+                            className="h-11 w-auto max-w-[185px] object-contain rounded-xl border border-white/10 group-hover:border-indigo-500/40 transition-all shadow-md shadow-indigo-500/10"
                         />
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 uppercase tracking-widest shrink-0">
                             v2.4

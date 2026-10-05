@@ -89,7 +89,7 @@ export default function Login() {
                         <img
                             src="/logo.png"
                             alt="agnecyos"
-                            className="h-9 w-auto object-contain rounded-lg border border-white/10 group-hover:border-indigo-500/40 transition-all shadow-md"
+                            className="h-11 md:h-12 w-auto object-contain rounded-xl border border-white/10 group-hover:border-indigo-500/40 transition-all shadow-md"
                         />
                     </Link>
 
@@ -175,7 +175,7 @@ export default function Login() {
                 <div className="flex items-center justify-between w-full mb-6">
                     <div className="lg:hidden">
                         <Link href="/">
-                            <img src="/logo.png" alt="agnecyos" className="h-8 w-auto rounded border border-white/10" />
+                            <img src="/logo.png" alt="agnecyos" className="h-10 w-auto rounded-xl border border-white/10" />
                         </Link>
                     </div>
 

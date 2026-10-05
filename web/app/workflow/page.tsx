@@ -49,8 +49,7 @@ export default function WorkflowPage() {
                 <div className="glass max-w-7xl w-full flex items-center justify-between px-8 py-4 rounded-full">
                     <div className="flex items-center gap-3">
                         <Link href="/" className="flex items-center gap-3">
-                            <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
-                            <span className="text-white text-xl font-bold tracking-tight">agnecyos</span>
+                            <img src="/logo.png" alt="agnecyos" className="h-12 md:h-14 w-auto object-contain rounded-xl border border-white/15 shadow-md hover:scale-105 transition-all" />
                         </Link>
                     </div>
                     <div className="hidden md:flex items-center gap-8">
@@ -274,8 +273,7 @@ export default function WorkflowPage() {
             <footer className="border-t border-slate-200 dark:border-slate-800 py-12">
                 <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-8">
                     <div className="flex items-center gap-3">
-                        <img src="/logo.png" alt="agnecyos" className="h-8 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
-                        <span className="font-bold text-slate-800 dark:text-white">agnecyos</span>
+                        <img src="/logo.png" alt="agnecyos" className="h-10 w-auto object-contain rounded-lg border border-white/10 shadow-sm opacity-90" />
                     </div>
                     <div className="flex gap-8 text-sm text-slate-500">
                         <a className="hover:text-[#5048e5] transition-colors" href="#">Twitter</a>

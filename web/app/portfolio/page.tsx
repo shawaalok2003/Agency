@@ -249,7 +249,7 @@ export default function PortfolioShowcasePage() {
             <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4">
                 <div className="glass max-w-7xl w-full flex items-center justify-between px-6 md:px-8 py-4 rounded-full">
                     <Link href="/" className="flex items-center gap-3">
-                        <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                        <img src="/logo.png" alt="agnecyos" className="h-12 md:h-14 w-auto object-contain rounded-xl border border-white/15 shadow-md hover:scale-105 transition-all" />
                     </Link>
                     <div className="hidden md:flex items-center gap-8">
                         <Link href="/portfolio" className="text-white text-sm font-semibold flex items-center gap-1.5 transition-colors">
@@ -681,7 +681,7 @@ export default function PortfolioShowcasePage() {
             <footer className="border-t border-white/10 bg-[#02050e] py-12 px-4 relative z-10 text-center text-xs text-slate-500">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-3">
-                        <img src="/logo.png" alt="agnecyos" className="h-7 w-auto object-contain rounded opacity-80" />
+                        <img src="/logo.png" alt="agnecyos" className="h-10 w-auto object-contain rounded-lg opacity-90 border border-white/10" />
                         <span>&copy; {new Date().getFullYear()} Dhandaeasy & AgnecyOS. All rights reserved.</span>
                     </div>
                     <div className="flex items-center gap-6">

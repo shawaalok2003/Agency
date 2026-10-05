@@ -49,7 +49,7 @@ export default function PricingPage() {
             <nav className="fixed top-0 left-0 right-0 z-50 flex justify-center pt-6 px-4">
                 <div className="glass max-w-7xl w-full flex items-center justify-between px-8 py-4 rounded-full">
                     <Link href="/" className="flex items-center gap-3">
-                        <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                        <img src="/logo.png" alt="agnecyos" className="h-12 md:h-14 w-auto object-contain rounded-xl border border-white/15 shadow-md hover:scale-105 transition-all" />
                     </Link>
                     <div className="hidden md:flex items-center gap-8">
                         <Link href="/portfolio" className="text-slate-400 hover:text-white text-sm font-medium transition-colors">Showcase</Link>
@@ -306,7 +306,7 @@ export default function PricingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
                     <div className="col-span-1 md:col-span-2 space-y-6">
                         <Link href="/" className="flex items-center gap-3">
-                            <img src="/logo.png" alt="agnecyos" className="h-9 w-auto object-contain rounded-lg border border-white/10 shadow-sm" />
+                            <img src="/logo.png" alt="agnecyos" className="h-11 md:h-12 w-auto object-contain rounded-xl border border-white/10 shadow-sm" />
                         </Link>
                         <p className="text-slate-500 max-w-sm">The world's most advanced agency management platform for teams that demand excellence.</p>
                     </div>
