@@ -80,8 +80,8 @@ export default function PricingPage() {
                 </div>
 
                 {/* Billing Toggle */}
-                <div className="flex justify-center mb-20">
-                    <div className="relative flex items-center p-1 bg-white/5 rounded-xl w-fit border border-white/10">
+                <div className="flex flex-col items-center justify-center mb-20">
+                    <div className="relative flex items-center p-1 bg-white/5 rounded-xl w-fit border border-white/10 mb-3">
                         <button
                             onClick={() => setBillingInterval('monthly')}
                             className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${billingInterval === 'monthly' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`}
@@ -98,6 +98,10 @@ export default function PricingPage() {
                             Save 20%
                         </div>
                     </div>
+                    <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        Prices in Indian Currency (₹ INR) &bull; Transparent Flat Pricing
+                    </span>
                 </div>
 
                 {/* Pricing Cards */}
@@ -107,7 +111,9 @@ export default function PricingPage() {
                         <div className="mb-8">
                             <h3 className="text-xl font-bold mb-2 text-white">Starter</h3>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-5xl font-black text-white">${billingInterval === 'monthly' ? '49' : '39'}</span>
+                                <span className="text-4xl md:text-5xl font-black text-white">
+                                    ₹{billingInterval === 'monthly' ? '3,999' : '2,999'}
+                                </span>
                                 <span className="text-slate-500 text-sm font-medium">/mo</span>
                             </div>
                             <p className="text-sm text-slate-400 mt-4 leading-relaxed">Perfect for solo practitioners and small teams just starting out.</p>
@@ -140,7 +146,9 @@ export default function PricingPage() {
                         <div className="mb-8">
                             <h3 className="text-xl font-bold mb-2 text-white">Pro</h3>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-6xl font-black text-white">${billingInterval === 'monthly' ? '99' : '79'}</span>
+                                <span className="text-5xl md:text-6xl font-black text-white">
+                                    ₹{billingInterval === 'monthly' ? '7,999' : '5,999'}
+                                </span>
                                 <span className="text-slate-500 text-sm font-medium">/mo</span>
                             </div>
                             <p className="text-sm text-slate-400 mt-4 leading-relaxed">Everything you need to scale your agency operations effectively.</p>
@@ -171,13 +179,15 @@ export default function PricingPage() {
                         <div className="mb-8">
                             <h3 className="text-xl font-bold mb-2 text-white">Enterprise</h3>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-5xl font-black text-white">Custom</span>
+                                <span className="text-4xl md:text-5xl font-black text-white">Custom</span>
                             </div>
                             <p className="text-sm text-slate-400 mt-4 leading-relaxed">Tailored solutions for large-scale creative agencies with custom needs.</p>
                         </div>
-                        <button className="w-full py-4 px-6 rounded-xl bg-white/5 text-sm font-bold hover:bg-white/10 transition-all mb-8 border border-white/5 text-white">
-                            Contact Sales
-                        </button>
+                        <a href="https://wa.me/916290529857" target="_blank" rel="noopener noreferrer">
+                            <button className="w-full py-4 px-6 rounded-xl bg-white/5 text-sm font-bold hover:bg-white/10 transition-all mb-8 border border-white/5 text-white">
+                                Contact Sales / WhatsApp
+                            </button>
+                        </a>
                         <div className="space-y-4">
                             {[
                                 'White-label Portal',
