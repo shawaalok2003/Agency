@@ -1070,28 +1070,30 @@ export default function Dashboard() {
                 </div>
 
                 {/* Live Team Check-Ins & Attendance Monitor for Admin */}
-                <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                                <Clock size={16} />
+                {isCompanyAdmin && (
+                    <div className="bg-[#0a0f1d] border border-white/[0.08] rounded-2xl p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                                    <Clock size={16} />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-bold text-white tracking-tight">Live Team Attendance & Check-Ins</h2>
+                                    <p className="text-xs text-gray-400">Real-time status of staff members on duty across your organization.</p>
+                                </div>
                             </div>
-                            <div>
-                                <h2 className="text-base font-bold text-white tracking-tight">Live Team Attendance & Check-Ins</h2>
-                                <p className="text-xs text-gray-400">Real-time status of staff members on duty across your organization.</p>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setActiveView('attendance')}
+                                className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                            >
+                                <span>Open Attendance Desk</span>
+                                <ChevronRight size={14} />
+                            </button>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setActiveView('attendance')}
-                            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
-                        >
-                            <span>Open Attendance Desk</span>
-                            <ChevronRight size={14} />
-                        </button>
+                        <AttendanceView />
                     </div>
-                    <AttendanceView />
-                </div>
+                )}
 
                 {/* Recent Projects Section */}
                 <div>
@@ -1708,10 +1710,29 @@ export default function Dashboard() {
                 )}
 
                 {activeView === 'daily_reports_feed' && (
-                    <DailyReportsAdminFeed
-                        user={user}
-                        onViewChange={setActiveView}
-                    />
+                    isCompanyAdmin ? (
+                        <DailyReportsAdminFeed
+                            user={user}
+                            onViewChange={setActiveView}
+                        />
+                    ) : (
+                        <div className="space-y-6">
+                            <TopNavBar title="Staff Reports" subtitle="Restricted to Company Admin." />
+                            <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-red-500/20 text-center space-y-3">
+                                <ShieldCheck size={40} className="text-red-400 mx-auto" />
+                                <h3 className="text-base font-bold text-white">Staff Reports Are Confidential</h3>
+                                <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                                    Other employees&apos; daily submissions and trackers are confidential to Company Admin. You can log your own work in your Daily Tracker.
+                                </p>
+                                <button
+                                    onClick={() => setActiveView('daily_tracker')}
+                                    className="mt-3 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2"
+                                >
+                                    <ClipboardList size={14} /> Open My Daily Tracker
+                                </button>
+                            </div>
+                        </div>
+                    )
                 )}
 
                 {activeView === 'tech_dashboard' && (
@@ -1736,10 +1757,29 @@ export default function Dashboard() {
                 )}
 
                 {activeView === 'attendance' && (
-                    <div className="space-y-6">
-                        <TopNavBar title="Live Team Attendance" subtitle="Real-time duty monitor and check-ins across departments." />
-                        <AttendanceView />
-                    </div>
+                    isCompanyAdmin ? (
+                        <div className="space-y-6">
+                            <TopNavBar title="Live Team Attendance" subtitle="Real-time duty monitor and check-ins across departments." />
+                            <AttendanceView />
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            <TopNavBar title="Attendance" subtitle="Company attendance is confidential." />
+                            <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-red-500/20 text-center space-y-3">
+                                <ShieldCheck size={40} className="text-red-400 mx-auto" />
+                                <h3 className="text-base font-bold text-white">Company Attendance Roster Restricted</h3>
+                                <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                                    Details and shift hours of other employees are confidential to Company Admin. Use the check-in widget in the top navigation to log your duty.
+                                </p>
+                                <button
+                                    onClick={() => setActiveView('team_chat')}
+                                    className="mt-3 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2"
+                                >
+                                    <MessageSquare size={14} /> Open Inter-Team Chat
+                                </button>
+                            </div>
+                        </div>
+                    )
                 )}
 
                 {activeView === 'team_chat' && (
@@ -1955,6 +1995,27 @@ export default function Dashboard() {
                 )}
 
                 {(activeView === 'team' || activeView === 'directory') && (() => {
+                    if (!isCompanyAdmin) {
+                        return (
+                            <div className="space-y-6">
+                                <TopNavBar title="Team Directory" subtitle="Employee details are confidential." />
+                                <div className="p-12 rounded-2xl bg-[#0a0f1d] border border-red-500/20 text-center space-y-3">
+                                    <ShieldCheck size={40} className="text-red-400 mx-auto" />
+                                    <h3 className="text-base font-bold text-white">Confidential Employee Information</h3>
+                                    <p className="text-xs text-gray-400 max-w-sm mx-auto">
+                                        Employee profiles, credentials, workloads, and performance details are restricted to Company Admin. Team members can collaborate and chat via Inter-Team Chat.
+                                    </p>
+                                    <button
+                                        onClick={() => setActiveView('team_chat')}
+                                        className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold inline-flex items-center gap-2 shadow-lg shadow-indigo-600/30 transition-all"
+                                    >
+                                        <MessageSquare size={15} /> Open Inter-Team Chat
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    }
+
                     const salesMembers = team.filter(m => (m.department || 'SALES').toUpperCase() === 'SALES');
                     const totalSalesRevenue = salesMembers.reduce((sum, m) => sum + (parseFloat(m.revenueGenerated?.toString() || '0') || 0), 0);
                     const totalDeals = salesMembers.reduce((sum, m) => sum + (m.dealsClosed || 0), 0);

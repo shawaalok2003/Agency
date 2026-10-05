@@ -128,12 +128,11 @@ export default function Sidebar({
                 title: 'COLLABORATION',
                 items: [
                     { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
-                    { id: 'directory', label: 'Team Directory', icon: Users, badge: counts.team },
                 ]
             }
         ];
     } else if (isLeadership) {
-        // Leadership workspace: projects, leads, approvals, daily tasks, attendance (NO invoices, NO team credentials)
+        // Leadership workspace: projects, leads, approvals, daily tasks (NO team employee details or invoices)
         navSections = [
             {
                 title: 'EXECUTIVE OPERATIONS',
@@ -153,12 +152,10 @@ export default function Sidebar({
                 ]
             },
             {
-                title: 'TEAM OPERATIONS',
+                title: 'COLLABORATION & WORK',
                 items: [
-                    { id: 'attendance', label: 'Live Team Attendance', icon: UserCheck },
-                    { id: 'daily_reports_feed', label: 'Daily Staff Trackers', icon: ClipboardList },
+                    { id: 'daily_tracker', label: 'My Daily Work Tracker', icon: ClipboardList },
                     { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
-                    { id: 'directory', label: 'Company Directory', icon: Users, badge: counts.team },
                 ]
             }
         ];
@@ -179,7 +176,6 @@ export default function Sidebar({
                 title: 'COLLABORATION',
                 items: [
                     { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
-                    { id: 'directory', label: 'Team Directory', icon: Users, badge: counts.team },
                 ]
             }
         ];
@@ -198,7 +194,6 @@ export default function Sidebar({
                 title: 'COLLABORATION',
                 items: [
                     { id: 'team_chat', label: 'Inter-Team Chat', icon: MessageSquare },
-                    { id: 'directory', label: 'Team Directory', icon: Users, badge: counts.team },
                 ]
             }
         ];

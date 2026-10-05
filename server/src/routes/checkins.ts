@@ -121,9 +121,14 @@ export async function checkInRoutes(server: FastifyInstance) {
         };
     });
 
-    // 4. Get Company-Wide Today Check-Ins (For Admin, Leadership & Staff directory)
+    // 4. Get Company-Wide Today Check-Ins (For Company Admin Only)
     server.get('/checkin/company-today', { preHandler: [authenticate] }, async (request, reply) => {
         const user = (request as any).user;
+        const isAdmin = user.role === 'ADMIN' || user.role === 'OWNER';
+        if (!isAdmin) {
+            return reply.code(403).send({ error: 'Access restricted: Only Company Admin can view company-wide attendance and employee details.' });
+        }
+
         const companyName = user.companyName || user.email.split('@')[1]?.split('.')[0] || user.email.split('@')[0];
 
         const todayStart = new Date();

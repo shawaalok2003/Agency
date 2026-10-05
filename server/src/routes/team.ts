@@ -57,18 +57,21 @@ export async function teamRoutes(server: FastifyInstance) {
             ];
         }
 
-        const members = await prisma.teamMember.findMany({
-            where,
-            orderBy: { createdAt: 'desc' }
-        });
-
-        // If not company admin, hide login passwords from the response
+        // Non-admin team members should not see any details of other employees
         if (!isCompanyAdmin) {
-            return members.map(m => {
+            const myProfile = await prisma.teamMember.findMany({
+                where: { email: user.email.toLowerCase().trim() }
+            });
+            return myProfile.map(m => {
                 const { loginPassword, ...rest } = m;
                 return rest;
             });
         }
+
+        const members = await prisma.teamMember.findMany({
+            where,
+            orderBy: { createdAt: 'desc' }
+        });
 
         return members;
     });

@@ -55,19 +55,19 @@ export default function LeadershipDashboardView({
                 <div className="flex items-center gap-3">
                     <button
                         type="button"
-                        onClick={() => onViewChange('attendance')}
-                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-950/40 hover:bg-emerald-900/40 text-emerald-300 border border-emerald-500/30 transition-colors shadow-sm"
+                        onClick={() => onViewChange('team_chat')}
+                        className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors shadow-sm"
                     >
-                        <Clock size={14} className="text-emerald-400" />
-                        <span>View Live Attendance</span>
+                        <MessageSquare size={14} />
+                        <span>Inter-Team Chat</span>
                     </button>
                     <button
                         type="button"
-                        onClick={() => onViewChange('daily_reports_feed')}
+                        onClick={() => onViewChange('daily_tracker')}
                         className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-colors"
                     >
                         <ClipboardList size={14} className="text-indigo-400" />
-                        <span>Review Staff Reports</span>
+                        <span>My Daily Tracker</span>
                     </button>
                 </div>
             </div>
